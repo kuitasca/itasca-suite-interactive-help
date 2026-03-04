@@ -26,17 +26,18 @@ const PaletteApp = () => {
 
     // new JSON structure passes argument descriptions directly
     const args = Array.isArray(node.inputs) ? node.inputs : [];
-    const commandLabel = node.title
-      .replace(/\([^)]*\)/g, '')
-      .split(/\s+/)[0];
+    // `label` is the search token (first word of title), `display` is full shown title
+    const label = (node.title || node.display).split(' ')[0];
+    const display = node.display || node.title;
 
-    const nextPath = [...path, commandLabel];
+    const nextPath = [...path, label];
 
     let commands = [];
 
     if (!node.children || node.children.length === 0) {
       commands.push({
-        label: commandLabel,
+        label,
+        display,
         path: nextPath,
         pathString: nextPath.join(' '),
         args,
@@ -79,10 +80,15 @@ const PaletteApp = () => {
 
     let results = [];
 
+    const getLabel = (n) => ((n.title || n.display) + '').split(' ')[0];
+    const getDisplay = (n) => n.display || n.title || '';
+
     if (tokens.length === 0) {
       if (treeData) {
         results = treeData.map(node => ({
-          label: node.title.split(' ')[0],
+          // label used for search, display used for UI
+          label: getLabel(node),
+          display: getDisplay(node),
           item: node
         }));
       }
@@ -93,7 +99,7 @@ const PaletteApp = () => {
       for (let i = 0; i < tokens.length - 1; i++) {
         const token = tokens[i];
         const found = currentNodes.find(n =>
-          n.title.toLowerCase().startsWith(token)
+          getLabel(n).toLowerCase().startsWith(token)
         );
 
         if (!found) {
@@ -101,29 +107,32 @@ const PaletteApp = () => {
           break;
         }
 
-        path.push(found.title.split(' ')[0]);
+        // keep path entries as the node's label (search tokens)
+        path.push(getLabel(found));
         currentNodes = found.children || [];
       }
 
       const lastToken = tokens[tokens.length - 1];
       const levelMatches = currentNodes.filter(n =>
-        n.title.toLowerCase().startsWith(lastToken)
+        getLabel(n).toLowerCase().startsWith(lastToken)
       );
 
       for (const node of levelMatches) {
-        const name = node.title.split(' ')[0];
+        const name = getLabel(node);
         const fullPath = [...path, name].join(' ');
 
         results.push({
           label: fullPath,
+          display: getDisplay(node),
           item: node
         });
 
         if (node.children?.length) {
           for (const child of node.children) {
-            const childName = child.title.split(' ')[0];
+            const childName = getLabel(child);
             results.push({
               label: [...path, name, childName].join(' '),
+              display: getDisplay(child),
               item: child
             });
           }
