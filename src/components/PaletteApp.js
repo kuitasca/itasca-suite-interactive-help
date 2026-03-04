@@ -27,16 +27,16 @@ const PaletteApp = () => {
     // new JSON structure passes argument descriptions directly
     const args = Array.isArray(node.inputs) ? node.inputs : [];
     // `label` is the search token (first word of title), `display` is full shown title
-    const label = (node.title || node.display).split(' ')[0];
+    const commandLabel = (node.title || node.display).split(' ')[0];
     const display = node.display || node.title;
 
-    const nextPath = [...path, label];
+    const nextPath = [...path, commandLabel];
 
     let commands = [];
 
     if (!node.children || node.children.length === 0) {
       commands.push({
-        label,
+        label: commandLabel,
         display,
         path: nextPath,
         pathString: nextPath.join(' '),
@@ -86,7 +86,7 @@ const PaletteApp = () => {
     if (tokens.length === 0) {
       if (treeData) {
         results = treeData.map(node => ({
-          // label used for search, display used for UI
+          // root items: single-token label and full display
           label: getLabel(node),
           display: getDisplay(node),
           item: node
@@ -95,6 +95,7 @@ const PaletteApp = () => {
     } else {
       let currentNodes = treeData || [];
       let path = [];
+      let displayPath = [];
 
       for (let i = 0; i < tokens.length - 1; i++) {
         const token = tokens[i];
@@ -119,20 +120,25 @@ const PaletteApp = () => {
 
       for (const node of levelMatches) {
         const name = getLabel(node);
-        const fullPath = [...path, name].join(' ');
+        const displayName = getDisplay(node);
+        const fullLabelPath = [...path, name].join(' ');
+        const fullDisplayPath = [...displayPath, displayName].join(' ');
 
         results.push({
-          label: fullPath,
-          display: getDisplay(node),
+          label: fullLabelPath,
+          display: fullDisplayPath,
           item: node
         });
 
         if (node.children?.length) {
           for (const child of node.children) {
             const childName = getLabel(child);
+            const childDisplay = getDisplay(child);
+            const fullLabelChildPath = [...path, name, childName].join(' ');
+            const fullDisplayChildPath = [...displayPath, displayName, childDisplay].join(' ');
             results.push({
-              label: [...path, name, childName].join(' '),
-              display: getDisplay(child),
+              label: fullLabelChildPath,
+              display: fullDisplayChildPath,
               item: child
             });
           }
@@ -389,8 +395,12 @@ const PaletteApp = () => {
     // update overlay and search tokens (this will trigger visibleRows re‑calc)
     updateOverlayAndSearch(commandText);
 
-    // after the list is filtered the clicked command becomes first result,
-    // so we store expansion state at index 0 only
+    // run synchronous search to determine where the clicked item lands
+    //const newResults = handleSearchIndex(commandText);
+    //const newIndex = newResults.findIndex(r => r.item === row.item);
+    //const expandIndex = newIndex >= 0 ? newIndex : 0;
+
+    //setExpandedRows({ [expandIndex]: willShow });
     setExpandedRows({ 0: willShow });
   };
 

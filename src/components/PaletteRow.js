@@ -16,6 +16,7 @@ const PaletteRow = ({
     // ignore clicks that originate inside the value editor
     if (e.target.closest('.value')) return;
     onClick();
+    onToggle && onToggle();
   };
 
   return (
@@ -25,7 +26,7 @@ const PaletteRow = ({
       onClick={handleClick}
       onContextMenu={onContextMenu}
     >
-      <span className="label">{row.display || row.label}</span>
+      <span className="label">{row.display}</span>
       {isExpanded && row.item && (
         <ValueEditor
           item={row.item}

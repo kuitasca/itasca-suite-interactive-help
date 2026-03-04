@@ -1,5 +1,6 @@
 /public/treedebug.txt
 /public/treedebug*.txt
+/public/treedebug-old.txt
 /treedebug.txt
 /node_modules
 /.pnp
