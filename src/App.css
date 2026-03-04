@@ -11,10 +11,20 @@
   --border-color: #ccd0da;
 }
 
+#root:focus,
+#root:focus-visible,
+#root:focus-within,
+.palette:focus,
+.palette:focus-visible,
+.palette:focus-within {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
 * {
   margin: 0;
   padding: 0;
-  box-sizing: border-box;
+  
   font-family: 'JetBrains Mono', 'Courier New', monospace;
 }
 
@@ -45,7 +55,7 @@ textarea,
 input[type="text"],
 input[type="number"],
 select {
-  width: 100%;
+  width: auto;
   background-color: #ffffff;
   color: var(--text-primary);
   border: 1px solid #ccd0da;
@@ -165,6 +175,37 @@ input[type="checkbox"] {
   white-space: nowrap;
 }
 
+.arg-label,
+.arg label {
+  flex: 0 0 auto;
+}
+
+.palette-row *:focus,
+.palette-row *:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.palette-row:focus,
+.palette-row:focus-visible,
+.palette-row:focus-within {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.palette-row input:focus,
+.palette-row textarea:focus,
+.palette-row select:focus {
+  outline: none !important;
+  box-shadow: none !important;
+  border-color: var(--border-color) !important;
+}
+
+input:focus {
+  outline: none;
+  box-shadow: none;
+}
+
 #typeOverlay {
   position: fixed;
   right: 12px;
@@ -184,6 +225,7 @@ ul {
   list-style: none;
   margin: 0;
   padding-left: 16px;
+  outline: none;
 }
 
 li > ul {
@@ -194,7 +236,9 @@ li > ul {
   background: #cfd0d3;
   color: white;
 }
-
+.palette-app {
+  outline: none;
+}
 /* ================================
    palette
 ================================ */
@@ -245,6 +289,19 @@ li > ul {
   margin-top: 6px;
 }
 
+.palette-row .label {
+    font-family:
+        "ITC Mixage Std Bold",
+        "Express 18 Bold",
+        "Segoe UI",
+        sans-serif,
+        "Gill Sans MT",
+        "Gill Sans MT Cyrillic Pro Bold";
+
+    font-weight: 600;
+    letter-spacing: 0.2px;
+}
+
 .palette-row.show-value > .value {
   display: block;
 }
@@ -265,7 +322,7 @@ li > ul {
   display: flex;
   gap: 4px;
   align-items: center;
-  flex: 1;
+  flex: 0 0 auto;
 }
 
 .repeat-controls {
