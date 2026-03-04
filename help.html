@@ -300,7 +300,7 @@ let visibleRows = [];
 let selectedIndex = -1;
 let selectedRow = null;
 let rootResults = [];
-resetTreeUI();
+//resetTreeUI();
 /*
 new QWebChannel(qt.webChannelTransport, channel => {
   qtBridge = channel.objects.qtBridge;
@@ -822,14 +822,17 @@ function buildValueEditor(node) {
 /* ================================
    ENTRY POINT FOR QT
 ================================ */
-function resetTreeUI() {
+function resetTreeUI(data) {
     currentTokenFilter = "";
     tokensFilter = [];
     clearSelection();
     updateOverlay("");
     searchIndex("");
+	// update lists
+	helpContext.slots = Array.isArray(data.slots) ? data.slots : [];
+	helpContext.groups = Array.isArray(data.groups) ? data.groups : [];
+	helpContext.geometrySets = Array.isArray(data.geometrySets) ? data.geometrySets : [];
 }
-
 
 
 function loadTree(data) {

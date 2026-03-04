@@ -18,8 +18,7 @@ const PaletteApp = () => {
   const [expandedRows, setExpandedRows] = useState({});
 
   const paletteListRef = useRef(null);
-  //TODO - we should ideally have a more robust way to ensure qtBridge is ready before calling, rather than just checking if the method exists at call time. Maybe a promise-based initialization or an event system.
-  const qtBridgeRef = useRef(null); // to hold reference to Qt bridge object once initialized
+  const qtBridgeRef = useRef(null); // holds the Qt bridge object when running inside QWebEngine
   // Parse command tree and build index
   const buildIndex = useCallback((node, path = []) => {
     if (!node?.title) return [];
@@ -340,11 +339,18 @@ const PaletteApp = () => {
     }
 
     // expose utilities for Qt to call
-    window.resetTreeUI = () => {
+    window.resetTreeUI = (data) => {
       setCurrentTokenFilter('');
       setTokensFilter([]);
       clearSelection();
       updateOverlayAndSearch('');
+      // we can optionally update help context here if the data includes it,
+      // or we could have a separate method for that
+      setHelpContext({
+      slots: Array.isArray(data.slots) ? data.slots : [],
+      groups: Array.isArray(data.groups) ? data.groups : [],
+      geometrySets: Array.isArray(data.geometrySets) ? data.geometrySets : []
+    });
     };
     window.loadTree = (data) => {
       handleLoadTree(data);
