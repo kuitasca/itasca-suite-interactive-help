@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import PaletteList from './PaletteList';
 import ContextMenu from './ContextMenu';
 import TypeOverlay from './TypeOverlay';
-import { parseArgsFromTitle } from '../utils/parseArgs';
+// parseArgsFromTitle is deprecated, inputs are sent as part of the data
 
 const PaletteApp = () => {
   const [treeData, setTreeData] = useState(null);
@@ -18,12 +18,14 @@ const PaletteApp = () => {
   const [expandedRows, setExpandedRows] = useState({});
 
   const paletteListRef = useRef(null);
-
+  //TODO - we should ideally have a more robust way to ensure qtBridge is ready before calling, rather than just checking if the method exists at call time. Maybe a promise-based initialization or an event system.
+  const qtBridgeRef = useRef(null); // to hold reference to Qt bridge object once initialized
   // Parse command tree and build index
   const buildIndex = useCallback((node, path = []) => {
     if (!node?.title) return [];
 
-    const args = parseArgsFromTitle(node.title);
+    // new JSON structure passes argument descriptions directly
+    const args = Array.isArray(node.inputs) ? node.inputs : [];
     const commandLabel = node.title
       .replace(/\([^)]*\)/g, '')
       .split(/\s+/)[0];
@@ -156,6 +158,19 @@ const PaletteApp = () => {
     setTokensFilter(commandText.split(' ').filter(Boolean));
     setCurrentTokenFilter('');
   }, []);
+  
+  const goUpOneLevel = useCallback(() => {
+    // build current full query from tokens
+    const full = [...tokensFilter, currentTokenFilter].join(' ').trim();
+    if (!full) return;
+    const parts = full.split(/\s+/);
+    if (parts.length <= 1) return; // already at root
+
+    parts.pop(); // remove last token
+
+    clearSelection();
+    updateOverlayAndSearch(parts.join(' '));
+  }, [tokensFilter, currentTokenFilter, clearSelection, updateOverlayAndSearch]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -386,6 +401,7 @@ const PaletteApp = () => {
       <ContextMenu
         {...contextMenu}
         onClose={handleCloseContextMenu}
+        onUpOneLevel={goUpOneLevel}
         onInsertAll={() => callQt('insertAllCommand', contextMenu.node?.item?.id)}
         onInsertLast={() => callQt('insertLastCommand', contextMenu.node?.item?.id)}
       />

@@ -275,8 +275,9 @@ li > ul {
 <body tabindex="0">
 <div id="typeOverlay"></div>
 <div id="tree-context-menu" class="context-menu hidden">
+  <div class="menu-item" id="menu-up-one-level">Up one level</div>
+  <div class="separator"></div>
   <div class="menu-item" id="menu-insert-all">Insert all command</div>
-  <!--<div class="separator"></div>-->
   <div class="menu-item" id="menu-insert-last">Insert last command</div>
 </div>
 
@@ -299,7 +300,7 @@ let visibleRows = [];
 let selectedIndex = -1;
 let selectedRow = null;
 let rootResults = [];
-//resetTreeUI();
+resetTreeUI();
 /*
 new QWebChannel(qt.webChannelTransport, channel => {
   qtBridge = channel.objects.qtBridge;
@@ -314,7 +315,6 @@ new QWebChannel(qt.webChannelTransport, channel => {
 /* ================================
    SEARCH AS IDE-like
 ================================ */
-
 
 function searchIndex(query) {
 
@@ -460,6 +460,7 @@ let contextNode = null;
 const menu = document.getElementById("tree-context-menu");
 const insertAllItem = document.getElementById("menu-insert-all");
 const insertLastItem = document.getElementById("menu-insert-last");
+const backOneLevel = document.getElementById("menu-up-one-level");
 
 const root = document.getElementById("results");
 
@@ -512,6 +513,11 @@ insertLastItem.addEventListener("click", e => {
   hideContextMenu();
 });
 
+backOneLevel.addEventListener("click", e => {
+  goUpOneLevel();
+  hideContextMenu();
+});
+
 menu.addEventListener("click", e => {
   e.stopPropagation();
 });
@@ -524,7 +530,25 @@ function hideContextMenu() {
 document.addEventListener("click", hideContextMenu);
 window.addEventListener("blur", hideContextMenu);
 
+function goUpOneLevel() {
 
+  const full = getFullQuery();
+  if (!full) return;
+
+  const parts = full.split(/\s+/);
+  if (parts.length <= 1) return;
+
+  // Remove last token
+  parts.pop();
+
+  // Reset state
+  currentTokenFilter = "";
+  tokensFilter = parts;
+
+  clearSelection();
+  updateOverlay(parts.join(" "));
+  searchIndex(parts.join(" "));
+}
 /* ================================
    INTERACTION
 ================================ */
@@ -585,16 +609,16 @@ function ensureVisible(element) {
     root.scrollTop -= rootRect.top - rect.top + 8;
   }
 }
-
 function buildValueEditor(node) {
   const item = node.__item;
   if (!item) return;
 
-  const args = parseArgsFromTitle(item.title);
+  const args = Array.isArray(item.inputs) ? item.inputs : [];
   if (!args.length) return;
 
   let valueDiv = node.querySelector(".value");
 
+  // toggle open/close
   if (valueDiv) {
     valueDiv.remove();
     return;
@@ -608,9 +632,6 @@ function buildValueEditor(node) {
     const row = document.createElement("div");
     row.className = "arg";
 
-    /* =========================
-       REPEATABLE SUPPORT
-    ========================= */
     const inputs = [];
 
     const sendValues = () => {
@@ -633,8 +654,13 @@ function buildValueEditor(node) {
 
     const makeInput = () => {
       let input;
+      const type = (arg.type || "").toLowerCase();
 
-      switch (arg.type) {
+      switch (type) {
+
+        // ------------------------
+        // GROUP
+        // ------------------------
         case "group":
           input = document.createElement("select");
           helpContext.groups.forEach(g => {
@@ -645,6 +671,9 @@ function buildValueEditor(node) {
           });
           break;
 
+        // ------------------------
+        // SLOT
+        // ------------------------
         case "slot":
           input = document.createElement("select");
           helpContext.slots.forEach(s => {
@@ -655,7 +684,11 @@ function buildValueEditor(node) {
           });
           break;
 
-        case "geometrySets":
+        // ------------------------
+        // GEOMETRY SET
+        // ------------------------
+        case "set":
+        case "geometryset":
           input = document.createElement("select");
           helpContext.geometrySets.forEach(gs => {
             const o = document.createElement("option");
@@ -665,6 +698,9 @@ function buildValueEditor(node) {
           });
           break;
 
+        // ------------------------
+        // NUMERIC
+        // ------------------------
         case "int":
         case "float":
           input = document.createElement("input");
@@ -672,103 +708,112 @@ function buildValueEditor(node) {
           input.step = "any";
           break;
 
-		case "vector": {
-		  const wrap = document.createElement("div");
-		  wrap.className = "vector";
+        // ------------------------
+        // VECTOR
+        // ------------------------
+        case "vec":
+        case "vector": {
+          const wrap = document.createElement("div");
+          wrap.className = "vector";
 
-		["x", "y", "z"].forEach(axis => {
-		  const i = document.createElement("input");
-		  i.type = "number";
-		  i.step = "any";
+          ["x", "y", "z"].forEach(axis => {
+            const i = document.createElement("input");
+            i.type = "number";
+            i.step = "any";
 
-		  const key = `${item.id}_${index}_${arg.name}_${axis}`;
-		  i.id = key;
-		  i.name = key;
+            const key = `${item.id}_${index}_${arg.name}_${axis}`;
+            i.id = key;
+            i.name = key;
+            i.onchange = sendValues;
 
-		  const label = document.createElement("label");
-		  label.htmlFor = key;
-		  label.textContent = `${arg.name} ${axis}`;
-		  label.className = "visually-hidden";
+            wrap.appendChild(i);
+          });
 
-		  i.onchange = sendValues;
+          inputs.push(wrap);
+          return wrap;
+        }
 
-		  wrap.appendChild(label);
-		  wrap.appendChild(i);
-		});
-
-
-		  inputs.push(wrap);
-		  return wrap;
-		}
-
+        // ------------------------
+        // BOOL
+        // ------------------------
         case "bool":
           input = document.createElement("input");
           input.type = "checkbox";
           break;
 
+        // ------------------------
+        // DEFAULT (string / any)
+        // ------------------------
         default:
           input = document.createElement("input");
+          input.type = "text";
       }
 
-      
-	  const fieldKey = `${item.id}_${index}_${arg.name}`;
-	  input.name = fieldKey;
-	  input.id = fieldKey;
-	  //
-	  input.onchange = sendValues;
+      const fieldKey = `${item.id}_${index}_${arg.name}`;
+      input.name = fieldKey;
+      input.id = fieldKey;
+      input.onchange = sendValues;
+
       inputs.push(input);
       return input;
     };
-	
-	/* =========================
-		BUILD UI
-	========================= */
-	const inputsWrap = document.createElement("div");
-	inputsWrap.className = "inputs";
 
-	// create FIRST input
-	const firstInput = makeInput();
-	inputsWrap.appendChild(firstInput);
+    // =========================
+    // BUILD UI
+    // =========================
 
-	// NOW create label and bind it
-	const label = document.createElement("label");
-	label.className = "arg-label";
-	label.textContent = arg.name + (arg.optional ? " (opt)" : "");
+    const inputsWrap = document.createElement("div");
+    inputsWrap.className = "inputs";
 
-	// bind label → input
-	if (firstInput?.id) {
-	  label.htmlFor = firstInput.id;
-	}
+    const firstInput = makeInput();
+    inputsWrap.appendChild(firstInput);
 
-	if (arg.repeatable) {
-	  const controls = document.createElement("div");
-	  controls.className = "repeat-controls";
+    // ------------------------
+    // LABEL
+    // ------------------------
+    const label = document.createElement("label");
+    label.className = "arg-label";
 
-	  const addBtn = document.createElement("button");
-	  addBtn.textContent = "+";
-	  addBtn.onclick = e => {
-		  e.preventDefault();
-		  const extra = makeInput();
-		  extra.setAttribute("aria-hidden", "true");
-		  inputsWrap.appendChild(extra);
-	  };
+    // Optional formatting <name>
+    label.textContent = arg.optional
+      ? `<${arg.name}>`
+      : arg.name;
 
-	  const delBtn = document.createElement("button");
-	  delBtn.textContent = "−";
-	  delBtn.onclick = e => {
-		e.preventDefault();
-		if (inputs.length > 1) {
-		  inputs.pop().remove();
-		  sendValues();
-		}
-	  };
+    if (firstInput?.id) {
+      label.htmlFor = firstInput.id;
+    }
 
-	  controls.append(addBtn, delBtn);
-	  row.append(inputsWrap, controls, label);
-	} else {
-	  row.append(inputsWrap, label);
-	}
+    // ------------------------
+    // REPEATABLE SUPPORT
+    // ------------------------
+    if (arg.repeatable) {
+      const controls = document.createElement("div");
+      controls.className = "repeat-controls";
 
+      const addBtn = document.createElement("button");
+      addBtn.textContent = "+";
+      addBtn.onclick = e => {
+        e.preventDefault();
+        const extra = makeInput();
+        extra.setAttribute("aria-hidden", "true");
+        inputsWrap.appendChild(extra);
+      };
+
+      const delBtn = document.createElement("button");
+      delBtn.textContent = "−";
+      delBtn.onclick = e => {
+        e.preventDefault();
+        if (inputs.length > 1) {
+          inputs.pop().remove();
+          sendValues();
+        }
+      };
+
+      controls.append(addBtn, delBtn);
+      row.append(inputsWrap, controls, label);
+    } else {
+      row.append(inputsWrap, label);
+    }
 
     valueDiv.appendChild(row);
   });
@@ -1303,6 +1348,7 @@ document.addEventListener('DOMContentLoaded', function() {
     loadFromFile();
   }*/
 });
+
 </script>
 
 </body>

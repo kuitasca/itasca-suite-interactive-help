@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import ValueEditor from './ValueEditor';
-import { parseArgsFromTitle } from '../utils/parseArgs';
 
 const PaletteRow = ({
   index,

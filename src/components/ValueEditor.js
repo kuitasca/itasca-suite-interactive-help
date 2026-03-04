@@ -1,34 +1,35 @@
-import React, { useState, useCallback } from 'react';
-import { parseArgsFromTitle } from '../utils/parseArgs';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import ArgumentInput from './ArgumentInput';
 
 const ValueEditor = ({ item, helpContext }) => {
-  const args = parseArgsFromTitle(item.title);
 
-  // if there are no arguments we bail out early before running any hooks
-  if (!args.length) return null;
+  const args = Array.isArray(item.inputs) ? item.inputs : [];
 
+  // ✅ Hooks must always run
   const [inputValues, setInputValues] = useState({});
-  const containerRef = React.useRef(null);
+  const containerRef = useRef(null);
 
   const handleValueChange = useCallback((argIndex, values) => {
     setInputValues(prev => ({
       ...prev,
       [argIndex]: values
     }));
-    // send to Qt if available
+
     if (window.qtBridge && typeof window.qtBridge.setArgValue === 'function') {
       window.qtBridge.setArgValue(item.id, argIndex, values);
     }
   }, [item.id]);
 
-  // focus first input when editor mounts
-  React.useEffect(() => {
+  useEffect(() => {
     if (containerRef.current) {
-      const firstInput = containerRef.current.querySelector('input, select, textarea');
+      const firstInput =
+        containerRef.current.querySelector('input, select, textarea');
       if (firstInput) firstInput.focus();
     }
   }, []);
+
+  // ✅ Early return AFTER hooks
+  if (!args.length) return null;
 
   return (
     <div className="value" ref={containerRef}>

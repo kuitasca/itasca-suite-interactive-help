@@ -1,6 +1,15 @@
 import React, { useEffect } from 'react';
 
-const ContextMenu = ({ visible, x, y, node, onClose, onInsertAll, onInsertLast }) => {
+const ContextMenu = ({
+  visible,
+  x,
+  y,
+  node,
+  onClose,
+  onInsertAll,
+  onInsertLast,
+  onUpOneLevel
+}) => {
   useEffect(() => {
     const handleClick = () => {
       onClose && onClose();
@@ -20,6 +29,12 @@ const ContextMenu = ({ visible, x, y, node, onClose, onInsertAll, onInsertLast }
     onClose && onClose();
   };
 
+  const handleUpOneLevel = (e) => {
+    e.stopPropagation();
+    onUpOneLevel && onUpOneLevel();
+    onClose && onClose();
+  };
+
   const handleInsertLast = (e) => {
     e.stopPropagation();
     onInsertLast && onInsertLast(node);
@@ -36,6 +51,10 @@ const ContextMenu = ({ visible, x, y, node, onClose, onInsertAll, onInsertLast }
         display: visible ? 'block' : 'none'
       }}
     >
+      <div className="menu-item" onClick={handleUpOneLevel}>
+        Up one level
+      </div>
+      <div className="separator" />
       <div className="menu-item" onClick={handleInsertAll}>
         Insert all command
       </div>
