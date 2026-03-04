@@ -35,6 +35,46 @@ body {
   overflow-y: auto;
 }
 
+.palette-app {
+  position: relative;
+  padding-top: 30px; /* slightly larger for safety */
+}
+
+.top-right-bar {
+  position: absolute;
+  top: 8px;
+  right: 25px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 10000; /* ensure it's above palette rows/hover highlight */
+  pointer-events: auto;
+}
+
+.top-right-bar input {
+  padding: 4px;
+  font-size: 13px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+}
+
+.icon {
+  width: 18px;
+  height: 18px;
+  color: #565658;
+}
+
+.top-right-bar button:hover .icon {
+  color: var(--accent-blue);
+}
+
+.top-right-bar button,
+.top-right-bar a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .label {
   font-size: 13px;
   color: var(--text-secondary);

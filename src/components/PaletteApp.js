@@ -3,6 +3,8 @@ import PaletteList from './PaletteList';
 import ContextMenu from './ContextMenu';
 import TypeOverlay from './TypeOverlay';
 // parseArgsFromTitle is deprecated, inputs are sent as part of the data
+import { ReactComponent as FilterIcon } from './assets/icons/filter.svg';
+import { ReactComponent as HelpIcon } from './assets/icons/help.svg';
 
 const PaletteApp = () => {
   const [treeData, setTreeData] = useState(null);
@@ -17,8 +19,23 @@ const PaletteApp = () => {
   const [helpContext, setHelpContext] = useState({ slots: [], groups: [], geometrySets: [] });
   const [expandedRows, setExpandedRows] = useState({});
 
+  const [filterActive, setFilterActive] = useState(false);
+  const [filterQuery, setFilterQuery] = useState('');
+  const [filteredFlatRows, setFilteredFlatRows] = useState([]);
+
   const paletteListRef = useRef(null);
   const qtBridgeRef = useRef(null); // holds the Qt bridge object when running inside QWebEngine
+
+  const [debouncedFilterQuery, setDebouncedFilterQuery] = useState('');
+  const MAX_RESULTS = 500;
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedFilterQuery(filterQuery);
+    }, 120);   // 100–150ms ideal
+
+    return () => clearTimeout(t);
+  }, [filterQuery]);
+
   // Parse command tree and build index
   const buildIndex = useCallback((node, path = []) => {
     if (!node?.title) return [];
@@ -29,24 +46,39 @@ const PaletteApp = () => {
     const commandLabel = (node.title || node.display).split(' ')[0];
     const display = node.display || node.title;
 
+    let commands = [];
     const nextPath = [...path, commandLabel];
 
-    let commands = [];
+  if (!node.children || node.children.length === 0) {
 
-    if (!node.children || node.children.length === 0) {
-      commands.push({
-        label: commandLabel,
-        display,
-        path: nextPath,
-        pathString: nextPath.join(' '),
-        args,
-        item: node
-      });
-    }
+    const fullPath = nextPath.join(' ');
+    //  build full display path using real display values
+    const fullDisplayPath = [...path.map(p => p), display].join(' ');
 
+    // split path into searchable tokens
+    const tokenKey = nextPath.join(' ').toLowerCase();
+
+    commands.push({
+      label: commandLabel,     // KEEP (overlay relies on it)
+      display: fullDisplayPath,                 // KEEP
+      path: nextPath,
+      pathString: fullPath,
+
+      // ✅ BETTER SEARCH INDEX
+      searchKey: fullDisplayPath.toLowerCase(), // full path for substring matching
+      searchTokens: tokenKey.split(/[\s\-_/]+/), // <-- NEW
+
+      args,
+      item: node
+    });
+  }
     if (node.children) {
       for (const child of node.children) {
-        commands = [...commands, ...buildIndex(child, nextPath)];
+        // use push to avoid creating new arrays each iteration
+        const childCommands = buildIndex(child, nextPath);
+        if (childCommands.length) {
+          commands.push(...childCommands);
+        }
       }
     }
 
@@ -65,7 +97,10 @@ const PaletteApp = () => {
     let commands = [];
     if (data.children) {
       for (const node of data.children) {
-        commands = [...commands, ...buildIndex(node)];
+        const childCommands = buildIndex(node);
+        if (childCommands.length) {
+          commands.push(...childCommands);
+        }
       }
     }
 
@@ -109,6 +144,8 @@ const PaletteApp = () => {
 
         // keep path entries as the node's label (search tokens)
         path.push(getLabel(found));
+        // keep displayPath entries as the node's full display for nicer UI 
+        displayPath.push(getDisplay(found)); 
         currentNodes = found.children || [];
       }
 
@@ -160,6 +197,7 @@ const PaletteApp = () => {
 
   const callQt = useCallback((action, itemId) => {
     if (!itemId) return;
+    console.log('Inserting command:', itemId);
     const bridge = qtBridgeRef.current;
     if (bridge && typeof bridge[action] === 'function') {
       bridge[action](itemId);
@@ -290,10 +328,58 @@ const PaletteApp = () => {
 
   // Update search index when query changes
   useEffect(() => {
+    if (filterActive) return;   // prevent mixing search systems
+
     const fullQuery = [...tokensFilter, currentTokenFilter].join(' ').trim();
     handleSearchIndex(fullQuery);
-  }, [tokensFilter, currentTokenFilter, handleSearchIndex]);
+  }, [tokensFilter, currentTokenFilter, handleSearchIndex, filterActive]);
 
+  //if the filter UI is active, apply its query with substring matching
+  // useEffect(() => {
+  //   if (filterActive) {
+  //     const q = filterQuery.trim().toLowerCase();
+  //     if (q) {
+  //       // loop through all indexed commands and show those containing the query
+  //       // const results = allCommands.filter(cmd =>
+  //       //   (cmd.display || '').toLowerCase().includes(q) ||
+  //       //   (cmd.label || '').toLowerCase().includes(q)
+  //       // );
+  //       const results = allCommands.filter(cmd =>
+  //         cmd.searchKey.includes(q)
+  //       );
+  //       setVisibleRows(results);
+  //       const newIndex = results.length > 0 ? 0 : -1;
+  //       setSelectedIndex(newIndex);
+  //       setSelectedRow(newIndex >= 0 ? results[0] : null);
+  //     } else {
+  //       // empty query behaves like clearing filter
+  //       handleSearchIndex('');
+  //     }
+  //   }
+  // }, [filterQuery, filterActive, allCommands, handleSearchIndex]);
+  useEffect(() => {
+    if (filterActive) {
+      setVisibleRows(filteredFlatRows);
+    }
+  }, [filterActive, filteredFlatRows]);
+
+  useEffect(() => {
+    if (!filterActive) return;
+
+    const q = debouncedFilterQuery.trim().toLowerCase();
+
+  if (!q) {
+    setFilteredFlatRows(allCommands.slice(0, 200)); 
+    return;
+  }
+
+  const results = allCommands.filter(cmd =>
+    cmd.searchKey.includes(q) ||
+    cmd.searchTokens.some(t => t.includes(q))
+  ).slice(0, MAX_RESULTS);
+
+    setFilteredFlatRows(results);
+  }, [filterActive, debouncedFilterQuery, allCommands]);
   // scroll selected row into view when it changes
   useEffect(() => {
     const list = paletteListRef.current;
@@ -393,20 +479,22 @@ const PaletteApp = () => {
   }, [handleLoadTree]);
 
   const handleRowClick = (row, index) => {
-    const commandText = row.label || '';
 
-    // determine whether we should show value editor after filtering
     const willShow = !(expandedRows[index] || false);
 
-    // update overlay and search tokens (this will trigger visibleRows re‑calc)
+    if (filterActive) {
+      // FILTER MODE
+      setSelectedIndex(index);
+      setSelectedRow(row);
+      setExpandedRows({ [index]: willShow });
+      return;
+    }
+
+    // PALETTE MODE (original behavior)
+    const commandText = row.label || '';
+
     updateOverlayAndSearch(commandText);
 
-    // run synchronous search to determine where the clicked item lands
-    //const newResults = handleSearchIndex(commandText);
-    //const newIndex = newResults.findIndex(r => r.item === row.item);
-    //const expandIndex = newIndex >= 0 ? newIndex : 0;
-
-    //setExpandedRows({ [expandIndex]: willShow });
     setExpandedRows({ 0: willShow });
   };
 
@@ -423,6 +511,36 @@ const PaletteApp = () => {
   return (
     <div className="palette-app" tabIndex={0}>
       <TypeOverlay query={[...tokensFilter, currentTokenFilter].join(' ')} />
+      {/* top‑right utility bar */}
+      <div className="top-right-bar">
+        <button
+          title="filter"
+          onClick={() => setFilterActive(prev => !prev)}
+        >
+         <FilterIcon className="icon" />
+        </button>
+        {filterActive && (
+          <input
+            type="text"
+            value={filterQuery}
+            onChange={e => setFilterQuery(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                // explicitly apply filter on Enter
+                handleSearchIndex(filterQuery);
+              }
+            }}
+            placeholder="filter"
+          />
+        )}
+        <a
+          href="common/docproject/source/manual/program_guide/mechanics/datafiles/editor_pane/inline_help.html"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <HelpIcon className="icon" />
+        </a>
+      </div>
       <ContextMenu
         {...contextMenu}
         onClose={handleCloseContextMenu}
