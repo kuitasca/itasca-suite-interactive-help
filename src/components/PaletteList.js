@@ -28,6 +28,7 @@ const PaletteList = forwardRef((
   };
 
   return (
+    <div className="palette-list">
     <ul
       ref={ref}
       id="results"
@@ -49,6 +50,7 @@ const PaletteList = forwardRef((
         />
       ))}
     </ul>
+    </div>
   );
 });
 

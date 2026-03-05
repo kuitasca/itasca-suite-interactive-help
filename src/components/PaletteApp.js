@@ -482,20 +482,22 @@ const PaletteApp = () => {
 
     const willShow = !(expandedRows[index] || false);
 
+    // always keep track of which row was clicked
+    setSelectedIndex(index);
+    setSelectedRow(row);
+
     if (filterActive) {
-      // FILTER MODE
-      setSelectedIndex(index);
-      setSelectedRow(row);
+      // FILTER MODE: only expand the clicked entry
       setExpandedRows({ [index]: willShow });
       return;
     }
 
     // PALETTE MODE (original behavior)
     const commandText = row.label || '';
-
     updateOverlayAndSearch(commandText);
 
-    setExpandedRows({ 0: willShow });
+    // expand the clicked item, not always index 0
+    setExpandedRows({ [index]: willShow });
   };
 
   const handleContextMenu = (x, y, row, index) => {
