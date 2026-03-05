@@ -32,12 +32,6 @@ body {
   display: flex;
   flex-direction: column;
 }
-/*
-.results-container {
-  flex: 1;
-  overflow-y: auto;   /* only scrollbar 
-}
-*/
 
 :root {
   --bg-primary: #ffffff;
@@ -65,10 +59,8 @@ body {
   font-family: 'JetBrains Mono', 'Courier New', monospace;
 }
 
-
-
 .palette-app {
-  padding-top: 30px; /* slightly larger for safety */
+  padding-top: 5px; /* slightly larger for safety */
   outline: none;
   height: 100%;
   display: flex;
@@ -77,15 +69,32 @@ body {
   overflow: hidden; /* prevent extra scroll */
 }
 
-.top-right-bar {
-  position: absolute;
-  top: 8px;
-  right: 25px;
+.palette-header {
   display: flex;
   align-items: center;
-  gap: 4px;
-  z-index: 10000; /* ensure it's above palette rows/hover highlight */
-  pointer-events: auto;
+  justify-content: space-between;
+  padding: 4px 1px 4px 8px; /* top right bottom left */
+  border-bottom: 1px solid #e5e5e5;
+}
+
+
+.title {
+      font-family:
+        "ITC Mixage Std Bold",
+        "Express 18 Bold",
+        "Segoe UI",
+        sans-serif,
+        "Gill Sans MT",
+        "Gill Sans MT Cyrillic Pro Bold";
+
+    font-weight: 600;
+    letter-spacing: 0.2px;
+}
+
+.top-right-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .top-right-bar input {
@@ -111,6 +120,7 @@ body {
   align-items: center;
   justify-content: center;
 }
+
 
 .label {
   font-size: 13px;

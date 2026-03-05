@@ -5,6 +5,7 @@ import TypeOverlay from './TypeOverlay';
 // parseArgsFromTitle is deprecated, inputs are sent as part of the data
 import { ReactComponent as FilterIcon } from './assets/icons/filter.svg';
 import { ReactComponent as HelpIcon } from './assets/icons/help.svg';
+import { ReactComponent as CloseIcon } from './assets/icons/close_off.svg';
 
 const PaletteApp = () => {
   const [treeData, setTreeData] = useState(null);
@@ -16,7 +17,7 @@ const PaletteApp = () => {
   const [mode, setMode] = useState('palette');
   const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, node: null });
   const [selectedRow, setSelectedRow] = useState(null);
-  const [helpContext, setHelpContext] = useState({ slots: [], groups: [], geometrySets: [] });
+  const [helpContext, setHelpContext] = useState({ slots: [], groups: [], geometrySets: [], title: 'Title' });
   const [expandedRows, setExpandedRows] = useState({});
 
   const [filterActive, setFilterActive] = useState(false);
@@ -91,7 +92,8 @@ const PaletteApp = () => {
     setHelpContext({
       slots: Array.isArray(data.slots) ? data.slots : [],
       groups: Array.isArray(data.groups) ? data.groups : [],
-      geometrySets: Array.isArray(data.geometrySets) ? data.geometrySets : []
+      geometrySets: Array.isArray(data.geometrySets) ? data.geometrySets : [],
+      title: data.title || 'Title'
     });
 
     let commands = [];
@@ -201,6 +203,15 @@ const PaletteApp = () => {
     const bridge = qtBridgeRef.current;
     if (bridge && typeof bridge[action] === 'function') {
       bridge[action](itemId);
+    } else {
+      console.warn('Qt action not available:', action);
+    }
+  }, []);
+  const callQtCloseEvent = useCallback((action, ...args) => {
+    const bridge = qtBridgeRef.current;
+
+    if (bridge && typeof bridge[action] === 'function') {
+      bridge[action](...args);
     } else {
       console.warn('Qt action not available:', action);
     }
@@ -334,29 +345,6 @@ const PaletteApp = () => {
     handleSearchIndex(fullQuery);
   }, [tokensFilter, currentTokenFilter, handleSearchIndex, filterActive]);
 
-  //if the filter UI is active, apply its query with substring matching
-  // useEffect(() => {
-  //   if (filterActive) {
-  //     const q = filterQuery.trim().toLowerCase();
-  //     if (q) {
-  //       // loop through all indexed commands and show those containing the query
-  //       // const results = allCommands.filter(cmd =>
-  //       //   (cmd.display || '').toLowerCase().includes(q) ||
-  //       //   (cmd.label || '').toLowerCase().includes(q)
-  //       // );
-  //       const results = allCommands.filter(cmd =>
-  //         cmd.searchKey.includes(q)
-  //       );
-  //       setVisibleRows(results);
-  //       const newIndex = results.length > 0 ? 0 : -1;
-  //       setSelectedIndex(newIndex);
-  //       setSelectedRow(newIndex >= 0 ? results[0] : null);
-  //     } else {
-  //       // empty query behaves like clearing filter
-  //       handleSearchIndex('');
-  //     }
-  //   }
-  // }, [filterQuery, filterActive, allCommands, handleSearchIndex]);
   useEffect(() => {
     if (filterActive) {
       setVisibleRows(filteredFlatRows);
@@ -435,7 +423,8 @@ const PaletteApp = () => {
       setHelpContext({
       slots: Array.isArray(data.slots) ? data.slots : [],
       groups: Array.isArray(data.groups) ? data.groups : [],
-      geometrySets: Array.isArray(data.geometrySets) ? data.geometrySets : []
+      geometrySets: Array.isArray(data.geometrySets) ? data.geometrySets : [],
+      title: data.title || 'Title'
     });
     };
     window.loadTree = (data) => {
@@ -453,30 +442,30 @@ const PaletteApp = () => {
   }, []);
 
   // Load debug data on mount
-  useEffect(() => {
-    const loadFromFile = async () => {
-      try {
-        const response = await fetch('treedebug.txt');
-        if (!response.ok) {
-          console.error(`Failed to load treedebug.txt: ${response.status} ${response.statusText}`);
-          alert(`Error loading file: ${response.status} ${response.statusText}\n\nMake sure treedebug.txt exists in the public folder.`);
-          return;
-        }
-        const text = await response.text();
-        const data = JSON.parse(text);
-        handleLoadTree(data);
-      } catch (error) {
-        console.error('Error loading debug data:', error);
-        if (error instanceof SyntaxError) {
-          alert('JSON parse error: ' + error.message + '\n\nMake sure treedebug.txt contains valid JSON.');
-        } else {
-          alert('Error loading file: ' + error.message);
-        }
-      }
-    };
+  // useEffect(() => {
+  //   const loadFromFile = async () => {
+  //     try {
+  //       const response = await fetch('treedebug.txt');
+  //       if (!response.ok) {
+  //         console.error(`Failed to load treedebug.txt: ${response.status} ${response.statusText}`);
+  //         alert(`Error loading file: ${response.status} ${response.statusText}\n\nMake sure treedebug.txt exists in the public folder.`);
+  //         return;
+  //       }
+  //       const text = await response.text();
+  //       const data = JSON.parse(text);
+  //       handleLoadTree(data);
+  //     } catch (error) {
+  //       console.error('Error loading debug data:', error);
+  //       if (error instanceof SyntaxError) {
+  //         alert('JSON parse error: ' + error.message + '\n\nMake sure treedebug.txt contains valid JSON.');
+  //       } else {
+  //         alert('Error loading file: ' + error.message);
+  //       }
+  //     }
+  //   };
 
-    loadFromFile();
-  }, [handleLoadTree]);
+  //   loadFromFile();
+  // }, [handleLoadTree]);
 
   const handleRowClick = (row, index) => {
 
@@ -513,6 +502,10 @@ const PaletteApp = () => {
   return (
     <div className="palette-app" tabIndex={0}>
       <TypeOverlay query={[...tokensFilter, currentTokenFilter].join(' ')} />
+    <div className="palette-header">
+    <div className="title">
+      {helpContext?.title}
+    </div>
       {/* top‑right utility bar */}
       <div className="top-right-bar">
         <button
@@ -542,6 +535,17 @@ const PaletteApp = () => {
         >
           <HelpIcon className="icon" />
         </a>
+        <a
+          href="#"
+          className="close-button"
+          onClick={(e) => {
+            e.preventDefault();
+            callQtCloseEvent('eventCloseFunction');
+          }}
+        >
+          <CloseIcon className="icon" />
+        </a>
+      </div>
       </div>
       <ContextMenu
         {...contextMenu}
