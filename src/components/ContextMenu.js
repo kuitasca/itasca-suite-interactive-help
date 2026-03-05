@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 const ContextMenu = ({
   visible,
@@ -10,6 +10,40 @@ const ContextMenu = ({
   onInsertLast,
   onUpOneLevel
 }) => {
+
+  const menuRef = useRef(null);
+  const [position, setPosition] = useState({ x, y });
+
+  useEffect(() => {
+    if (!visible || !menuRef.current) return;
+
+    const rect = menuRef.current.getBoundingClientRect();
+
+    const menuHeight = rect.height;
+    const menuWidth = rect.width;
+
+    const viewportHeight = window.innerHeight;
+    const viewportWidth = window.innerWidth;
+
+    let newX = x;
+    let newY = y;
+
+    const margin = 8;
+
+    // flip vertically
+    if (y + menuHeight > viewportHeight - margin) {
+      newY = y - menuHeight;
+    }
+
+    // flip horizontally
+    if (x + menuWidth > viewportWidth - margin) {
+      newX = x - menuWidth;
+    }
+
+    setPosition({ x: newX, y: newY });
+
+  }, [visible, x, y]);
+
   useEffect(() => {
     const handleClick = () => {
       onClose && onClose();
@@ -43,21 +77,24 @@ const ContextMenu = ({
 
   return (
     <div
+      ref={menuRef}
       className="context-menu"
       style={{
         position: 'fixed',
-        left: `${x}px`,
-        top: `${y}px`,
-        display: visible ? 'block' : 'none'
+        left: `${position.x}px`,
+        top: `${position.y}px`
       }}
     >
       <div className="menu-item" onClick={handleUpOneLevel}>
         Up one level
       </div>
+
       <div className="separator" />
+
       <div className="menu-item" onClick={handleInsertAll}>
         Insert all command
       </div>
+
       <div className="menu-item" onClick={handleInsertLast}>
         Insert last command
       </div>
