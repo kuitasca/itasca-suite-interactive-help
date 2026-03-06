@@ -20,9 +20,6 @@ const VectorInput = ({ itemId, argIndex, argName, onChange }) => {
         const fieldKey = `${itemId}_${argIndex}_${argName}_${axis}`;
         return (
           <div key={fieldKey}>
-            <label htmlFor={fieldKey} className="visually-hidden">
-              {argName} {axis}
-            </label>
             <input
               id={fieldKey}
               name={fieldKey}

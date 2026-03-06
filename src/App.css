@@ -133,9 +133,12 @@ body {
 ================================ */
 .value {
   order: 1;
-  display: none;
-  margin-left: 22px;
+  display: flex;
+  flex-direction: column;  /* Stack args vertically */
+  margin-left: 10px;
   padding: 8px;
+  flex: 1;
+  min-width: 0;
 }
 
 textarea,
@@ -225,20 +228,35 @@ input[type="checkbox"] {
 
 .arg {
   display: flex;
+  flex-wrap: wrap;          /* allow label + inputs to rearrange when narrow */
   align-items: center;
   gap: 6px;
   margin-bottom: 8px;
+  width: 100%;
+}
+
+/* when the argument row gets very narrow, stack label above inputs */
+@media (max-width: 480px) {
+  .arg {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .arg-label {
+    order: -1;             /* put label first in column layout */
+    width: 100%;
+  }
 }
 
 .arg label {
   font-size: 0.85em;
   opacity: 0.7;
   white-space: nowrap;
+  /*flex: 0 0 auto; /* don't let label grow */
 }
 
 .value input,
 .value select {
-  max-width: 140px;
+  max-width: 120px;
 }
 
 .value input.num {
@@ -249,11 +267,22 @@ input[type="checkbox"] {
 
 .vector {
   display: flex;
-  gap: 4px;
+  flex-wrap: wrap; /* wrap inputs onto new lines when space is tight */
+  gap: 2px;        /* smaller gap between axes */
+  flex: 1 1 auto;  /* allow the vector block to fill available .inputs space */
+}
+
+.vector > div {
+  /* each axis wrapper shares available space equally and can shrink
+     and grow based on flex-basis */
+  flex: 1 1 60px;
+  min-width: 40px;
 }
 
 .vector-input {
-  width: 60px;
+  width: 100%;
+  box-sizing: border-box;
+  max-width: none;           /* allow axes to expand/shrink freely */
 }
 
 .arg-label {
@@ -404,9 +433,11 @@ li > ul {
 
 .inputs {
   display: flex;
+  flex-wrap: wrap;          /* allow inputs to flow onto new lines */
   gap: 4px;
   align-items: center;
-  flex: 0 0 auto;
+  /*flex: 1 1 auto;            grow to fill remaining space after label */
+  width: 100%;
 }
 
 .repeat-controls {
