@@ -8,7 +8,8 @@ const ContextMenu = ({
   onClose,
   onInsertAll,
   onInsertLast,
-  onUpOneLevel
+  onUpOneLevel,
+  onShowHelp
 }) => {
 
   const menuRef = useRef(null);
@@ -74,6 +75,11 @@ const ContextMenu = ({
     onInsertLast && onInsertLast(node);
     onClose && onClose();
   };
+  const handleShowHelp = (e) => {
+    e.stopPropagation();
+    onShowHelp && onShowHelp(node);
+    onClose && onClose();
+  };
 
   return (
     <div
@@ -97,6 +103,10 @@ const ContextMenu = ({
 
       <div className="menu-item" onClick={handleInsertLast}>
         Insert last command
+      </div>
+      <div className="separator" />
+      <div className="menu-item" onClick={handleShowHelp}>
+        Selection Reference
       </div>
     </div>
   );

@@ -199,7 +199,7 @@ const PaletteApp = () => {
 
   const callQt = useCallback((action, itemId) => {
     if (!itemId) return;
-    console.log('Inserting command:', itemId);
+    console.log(action+ ": " + itemId);
     const bridge = qtBridgeRef.current;
     if (bridge && typeof bridge[action] === 'function') {
       bridge[action](itemId);
@@ -324,6 +324,17 @@ const PaletteApp = () => {
         return;
       }
 
+      // if (e.key === 'F1') {
+      //   if (selectedIndex >= 0) {
+      //     const row = visibleRows[selectedIndex];
+      //     if (row) {
+      //       console.log('showHelpCommand')
+      //       callQt('showHelpCommand', row.item?.id); 
+      //     }
+      //   }
+      //   e.preventDefault();
+      //   return;
+      // }
       if (e.key.length === 1) {
         if (mode !== 'palette') {
           setMode('palette');
@@ -551,8 +562,9 @@ const PaletteApp = () => {
         {...contextMenu}
         onClose={handleCloseContextMenu}
         onUpOneLevel={goUpOneLevel}
-        onInsertAll={() => callQt('insertAllCommand', contextMenu.node?.item?.id)}
         onInsertLast={() => callQt('insertLastCommand', contextMenu.node?.item?.id)}
+        onInsertAll={() => callQt('insertAllCommand', contextMenu.node?.item?.id)}
+        onShowHelp={() => callQt('showHelpCommand', contextMenu.node?.item?.id)}
       />
       <PaletteList
         ref={paletteListRef}
