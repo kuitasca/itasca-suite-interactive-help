@@ -24,6 +24,10 @@ const PaletteApp = () => {
   const [filterQuery, setFilterQuery] = useState('');
   const [filteredFlatRows, setFilteredFlatRows] = useState([]);
 
+  const [activeTab, setActiveTab] = useState('palette'); // 'palette' | 'ai'
+  const [aiInput, setAiInput] = useState('');
+  const [aiMessages, setAiMessages] = useState([]);
+
   const paletteListRef = useRef(null);
   const qtBridgeRef = useRef(null); // holds the Qt bridge object when running inside QWebEngine
 
@@ -50,29 +54,29 @@ const PaletteApp = () => {
     let commands = [];
     const nextPath = [...path, commandLabel];
 
-  if (!node.children || node.children.length === 0) {
+    if (!node.children || node.children.length === 0) {
 
-    const fullPath = nextPath.join(' ');
-    //  build full display path using real display values
-    const fullDisplayPath = [...path.map(p => p), display].join(' ');
+      const fullPath = nextPath.join(' ');
+      //  build full display path using real display values
+      const fullDisplayPath = [...path.map(p => p), display].join(' ');
 
-    // split path into searchable tokens
-    const tokenKey = nextPath.join(' ').toLowerCase();
+      // split path into searchable tokens
+      const tokenKey = nextPath.join(' ').toLowerCase();
 
-    commands.push({
-      label: commandLabel,     // KEEP (overlay relies on it)
-      display: fullDisplayPath,                 // KEEP
-      path: nextPath,
-      pathString: fullPath,
+      commands.push({
+        label: commandLabel,     // KEEP (overlay relies on it)
+        display: fullDisplayPath,                 // KEEP
+        path: nextPath,
+        pathString: fullPath,
 
-      // ✅ BETTER SEARCH INDEX
-      searchKey: fullDisplayPath.toLowerCase(), // full path for substring matching
-      searchTokens: tokenKey.split(/[\s\-_/]+/), // <-- NEW
+        // ✅ BETTER SEARCH INDEX
+        searchKey: fullDisplayPath.toLowerCase(), // full path for substring matching
+        searchTokens: tokenKey.split(/[\s\-_/]+/), // <-- NEW
 
-      args,
-      item: node
-    });
-  }
+        args,
+        item: node
+      });
+    }
     if (node.children) {
       for (const child of node.children) {
         // use push to avoid creating new arrays each iteration
@@ -147,7 +151,7 @@ const PaletteApp = () => {
         // keep path entries as the node's label (search tokens)
         path.push(getLabel(found));
         // keep displayPath entries as the node's full display for nicer UI 
-        displayPath.push(getDisplay(found)); 
+        displayPath.push(getDisplay(found));
         currentNodes = found.children || [];
       }
 
@@ -199,7 +203,7 @@ const PaletteApp = () => {
 
   const callQt = useCallback((action, itemId) => {
     if (!itemId) return;
-    console.log(action+ ": " + itemId);
+    console.log(action + ": " + itemId);
     const bridge = qtBridgeRef.current;
     if (bridge && typeof bridge[action] === 'function') {
       bridge[action](itemId);
@@ -221,7 +225,7 @@ const PaletteApp = () => {
     setTokensFilter(commandText.split(' ').filter(Boolean));
     setCurrentTokenFilter('');
   }, []);
-  
+
   const goUpOneLevel = useCallback(() => {
     // build current full query from tokens
     const full = [...tokensFilter, currentTokenFilter].join(' ').trim();
@@ -367,15 +371,15 @@ const PaletteApp = () => {
 
     const q = debouncedFilterQuery.trim().toLowerCase();
 
-  if (!q) {
-    setFilteredFlatRows(allCommands.slice(0, 200)); 
-    return;
-  }
+    if (!q) {
+      setFilteredFlatRows(allCommands.slice(0, 200));
+      return;
+    }
 
-  const results = allCommands.filter(cmd =>
-    cmd.searchKey.includes(q) ||
-    cmd.searchTokens.some(t => t.includes(q))
-  ).slice(0, MAX_RESULTS);
+    const results = allCommands.filter(cmd =>
+      cmd.searchKey.includes(q) ||
+      cmd.searchTokens.some(t => t.includes(q))
+    ).slice(0, MAX_RESULTS);
 
     setFilteredFlatRows(results);
   }, [filterActive, debouncedFilterQuery, allCommands]);
@@ -432,11 +436,11 @@ const PaletteApp = () => {
       // we can optionally update help context here if the data includes it,
       // or we could have a separate method for that
       setHelpContext({
-      slots: Array.isArray(data.slots) ? data.slots : [],
-      groups: Array.isArray(data.groups) ? data.groups : [],
-      geometrySets: Array.isArray(data.geometrySets) ? data.geometrySets : [],
-      title: data.title || 'Title'
-    });
+        slots: Array.isArray(data.slots) ? data.slots : [],
+        groups: Array.isArray(data.groups) ? data.groups : [],
+        geometrySets: Array.isArray(data.geometrySets) ? data.geometrySets : [],
+        title: data.title || 'Title'
+      });
     };
     window.loadTree = (data) => {
       handleLoadTree(data);
@@ -453,30 +457,30 @@ const PaletteApp = () => {
   }, []);
 
   // Load debug data on mount
-  // useEffect(() => {
-  //   const loadFromFile = async () => {
-  //     try {
-  //       const response = await fetch('treedebug.txt');
-  //       if (!response.ok) {
-  //         console.error(`Failed to load treedebug.txt: ${response.status} ${response.statusText}`);
-  //         alert(`Error loading file: ${response.status} ${response.statusText}\n\nMake sure treedebug.txt exists in the public folder.`);
-  //         return;
-  //       }
-  //       const text = await response.text();
-  //       const data = JSON.parse(text);
-  //       handleLoadTree(data);
-  //     } catch (error) {
-  //       console.error('Error loading debug data:', error);
-  //       if (error instanceof SyntaxError) {
-  //         alert('JSON parse error: ' + error.message + '\n\nMake sure treedebug.txt contains valid JSON.');
-  //       } else {
-  //         alert('Error loading file: ' + error.message);
-  //       }
-  //     }
-  //   };
+  useEffect(() => {
+    const loadFromFile = async () => {
+      try {
+        const response = await fetch('treedebug.txt');
+        if (!response.ok) {
+          console.error(`Failed to load treedebug.txt: ${response.status} ${response.statusText}`);
+          alert(`Error loading file: ${response.status} ${response.statusText}\n\nMake sure treedebug.txt exists in the public folder.`);
+          return;
+        }
+        const text = await response.text();
+        const data = JSON.parse(text);
+        handleLoadTree(data);
+      } catch (error) {
+        console.error('Error loading debug data:', error);
+        if (error instanceof SyntaxError) {
+          alert('JSON parse error: ' + error.message + '\n\nMake sure treedebug.txt contains valid JSON.');
+        } else {
+          alert('Error loading file: ' + error.message);
+        }
+      }
+    };
 
-  //   loadFromFile();
-  // }, [handleLoadTree]);
+    loadFromFile();
+  }, [handleLoadTree]);
 
   const handleRowClick = (row, index) => {
 
@@ -510,76 +514,140 @@ const PaletteApp = () => {
     setContextMenu(prev => ({ ...prev, visible: false }));
   };
 
+  const handleAiSend = () => {
+    if (!aiInput.trim()) return;
+    const userMessage = { role: 'user', content: aiInput };
+    const assistantMessage = {
+      role: 'assistant',
+      content: `Answer for: "${aiInput}"`,
+    };
+    setAiMessages(prev => [...prev, userMessage, assistantMessage]);
+    setAiInput('');
+  };
+
   return (
     <div className="palette-app" tabIndex={0}>
       <TypeOverlay query={[...tokensFilter, currentTokenFilter].join(' ')} />
-    <div className="palette-header">
-    <div className="title">
-      {helpContext?.title}
-    </div>
-      {/* top‑right utility bar */}
-      <div className="top-right-bar">
-        <button
-          title="filter"
-          onClick={() => setFilterActive(prev => !prev)}
-        >
-         <FilterIcon className="icon" />
-        </button>
-        {filterActive && (
-          <input
-            type="text"
-            value={filterQuery}
-            onChange={e => setFilterQuery(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter') {
-                // explicitly apply filter on Enter
-                handleSearchIndex(filterQuery);
-              }
+      <div className="palette-header">
+        {/*<div className="title">
+          {helpContext?.title}
+        </div>*/}
+        {/* Tabs */}
+        <div className="palette-tabs">
+          <button
+            className={activeTab === 'palette' ? 'active' : ''}
+            onClick={() => setActiveTab('palette')}
+          >
+            Commands List
+          </button>
+          <button
+            className={activeTab === 'ai' ? 'active' : ''}
+            onClick={() => setActiveTab('ai')}
+          >
+            AI Mode
+          </button>
+        </div>
+        {/* top‑right utility bar */}
+        <div className="top-right-bar">
+          <button
+            title="filter"
+            onClick={() => setFilterActive(prev => !prev)}
+          >
+            <FilterIcon className="icon" />
+          </button>
+          {filterActive && (
+            <input
+              type="text"
+              value={filterQuery}
+              onChange={e => setFilterQuery(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  // explicitly apply filter on Enter
+                  handleSearchIndex(filterQuery);
+                }
+              }}
+              placeholder="filter"
+            />
+          )}
+          <a
+            href="common/docproject/source/manual/program_guide/mechanics/datafiles/editor_pane/inline_help.html"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <HelpIcon className="icon" />
+          </a>
+          <a
+            href="#"
+            className="close-button"
+            onClick={(e) => {
+              e.preventDefault();
+              callQtCloseEvent('eventCloseFunction');
             }}
-            placeholder="filter"
+          >
+            <CloseIcon className="icon" />
+          </a>
+        </div>
+      </div>
+
+      {activeTab === 'palette' ? (
+        <>
+          <ContextMenu
+            {...contextMenu}
+            onClose={handleCloseContextMenu}
+            onUpOneLevel={goUpOneLevel}
+            onInsertLast={() => callQt('insertLastCommand', contextMenu.node?.item?.id)}
+            onInsertAll={() => callQt('insertAllCommand', contextMenu.node?.item?.id)}
+            onShowHelp={() => callQt('showHelpCommand', contextMenu.node?.item?.id)}
           />
-        )}
-        <a
-          href="common/docproject/source/manual/program_guide/mechanics/datafiles/editor_pane/inline_help.html"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <HelpIcon className="icon" />
-        </a>
-        <a
-          href="#"
-          className="close-button"
-          onClick={(e) => {
-            e.preventDefault();
-            callQtCloseEvent('eventCloseFunction');
-          }}
-        >
-          <CloseIcon className="icon" />
-        </a>
-      </div>
-      </div>
-      <ContextMenu
-        {...contextMenu}
-        onClose={handleCloseContextMenu}
-        onUpOneLevel={goUpOneLevel}
-        onInsertLast={() => callQt('insertLastCommand', contextMenu.node?.item?.id)}
-        onInsertAll={() => callQt('insertAllCommand', contextMenu.node?.item?.id)}
-        onShowHelp={() => callQt('showHelpCommand', contextMenu.node?.item?.id)}
-      />
-      <PaletteList
-        ref={paletteListRef}
-        visibleRows={visibleRows}
-        selectedIndex={selectedIndex}
-        expandedRows={expandedRows}
-        onToggleExpand={(idx) => setExpandedRows(prev => ({ ...prev, [idx]: !prev[idx] }))}
-        onSelectRow={(index) => {
-          setSelectedIndex(index);
-          setSelectedRow(visibleRows[index] || null);
-        }}
-        onContextMenu={handleContextMenu}
-        onRowClick={handleRowClick}
-        helpContext={helpContext}
-      />
+          <PaletteList
+            ref={paletteListRef}
+            visibleRows={visibleRows}
+            selectedIndex={selectedIndex}
+            expandedRows={expandedRows}
+            onToggleExpand={(idx) => setExpandedRows(prev => ({ ...prev, [idx]: !prev[idx] }))}
+            onSelectRow={(index) => {
+              setSelectedIndex(index);
+              setSelectedRow(visibleRows[index] || null);
+            }}
+            onContextMenu={handleContextMenu}
+            onRowClick={handleRowClick}
+            helpContext={helpContext}
+          />
+        </>
+      ) : (
+        <div className="ai-mode-panel">
+          <div className="ai-chat-body">
+            {aiMessages.length === 0 ? (
+              <div className="ai-empty-state">{/*Ask me about ITASCA Software...*/}</div>
+            ) : (
+              aiMessages.map((msg, index) => (
+                <div key={index} className={`ai-message-row ${msg.role}`}>
+                  <div className={`ai-message-bubble ${msg.role}`}>
+                    {msg.content}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+          <div className="ai-input-bar">
+            <textarea
+              value={aiInput}
+              onChange={(e) => setAiInput(e.target.value)}
+              placeholder="Ask me about ITASCA Software commands..."
+              rows={1}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleAiSend();
+                }
+              }}
+            />
+            <button className="send-button" onClick={handleAiSend}>
+              Send
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

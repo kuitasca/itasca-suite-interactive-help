@@ -2,16 +2,19 @@
    LIGHT THEME
 ================================ */
 
-html, body, #root {
+html,
+body,
+#root {
   height: 100%;
   margin: 0;
-  overflow: hidden;   /* prevent document scroll */
+  overflow: hidden;
+  /* prevent document scroll */
 }
 
 body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
-  padding: 16px; 
+  padding: 16px;
 }
 
 .palette-app {
@@ -23,7 +26,8 @@ body {
 
 .palette-list {
   flex: 1;
-  overflow-y: auto;   /* ONLY scrollbar allowed */
+  overflow-y: auto;
+  /* ONLY scrollbar allowed */
   overflow-x: hidden;
 }
 
@@ -55,40 +59,44 @@ body {
 * {
   margin: 0;
   padding: 0;
-  
+
   font-family: 'JetBrains Mono', 'Courier New', monospace;
 }
 
 .palette-app {
-  padding-top: 5px; /* slightly larger for safety */
+  padding-top: 5px;
+  /* slightly larger for safety */
   outline: none;
   height: 100%;
   display: flex;
   flex-direction: column;
-  position: relative;   /* important for overlay */
-  overflow: hidden; /* prevent extra scroll */
+  position: relative;
+  /* important for overlay */
+  overflow: hidden;
+  /* prevent extra scroll */
 }
 
 .palette-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 1px 4px 8px; /* top right bottom left */
+  padding: 4px 1px 4px 8px;
+  /* top right bottom left */
   border-bottom: 1px solid #e5e5e5;
 }
 
 
 .title {
-      font-family:
-        "ITC Mixage Std Bold",
-        "Express 18 Bold",
-        "Segoe UI",
-        sans-serif,
-        "Gill Sans MT",
-        "Gill Sans MT Cyrillic Pro Bold";
+  font-family:
+    "ITC Mixage Std Bold",
+    "Express 18 Bold",
+    "Segoe UI",
+    sans-serif,
+    "Gill Sans MT",
+    "Gill Sans MT Cyrillic Pro Bold";
 
-    font-weight: 600;
-    letter-spacing: 0.2px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
 }
 
 .top-right-bar {
@@ -134,7 +142,8 @@ body {
 .value {
   order: 1;
   display: flex;
-  flex-direction: column;  /* Stack args vertically */
+  flex-direction: column;
+  /* Stack args vertically */
   margin-left: 10px;
   padding: 8px;
   flex: 1;
@@ -228,7 +237,8 @@ input[type="checkbox"] {
 
 .arg {
   display: flex;
-  flex-wrap: wrap;          /* allow label + inputs to rearrange when narrow */
+  flex-wrap: wrap;
+  /* allow label + inputs to rearrange when narrow */
   align-items: center;
   gap: 6px;
   margin-bottom: 8px;
@@ -241,8 +251,10 @@ input[type="checkbox"] {
     flex-direction: column;
     align-items: flex-start;
   }
+
   .arg-label {
-    order: -1;             /* put label first in column layout */
+    order: -1;
+    /* put label first in column layout */
     width: 100%;
   }
 }
@@ -260,19 +272,22 @@ input[type="checkbox"] {
 }
 
 .value input.num {
-  width: 80px;          
+  width: 80px;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
 .vector {
   display: flex;
-  flex-wrap: wrap; /* wrap inputs onto new lines when space is tight */
-  gap: 2px;        /* smaller gap between axes */
-  flex: 1 1 auto;  /* allow the vector block to fill available .inputs space */
+  flex-wrap: wrap;
+  /* wrap inputs onto new lines when space is tight */
+  gap: 2px;
+  /* smaller gap between axes */
+  flex: 1 1 auto;
+  /* allow the vector block to fill available .inputs space */
 }
 
-.vector > div {
+.vector>div {
   /* each axis wrapper shares available space equally and can shrink
      and grow based on flex-basis */
   flex: 1 1 60px;
@@ -282,7 +297,8 @@ input[type="checkbox"] {
 .vector-input {
   width: 100%;
   box-sizing: border-box;
-  max-width: none;           /* allow axes to expand/shrink freely */
+  max-width: none;
+  /* allow axes to expand/shrink freely */
 }
 
 .arg-label {
@@ -344,7 +360,7 @@ ul {
   outline: none;
 }
 
-li > ul {
+li>ul {
   margin-left: 12px;
 }
 
@@ -403,19 +419,19 @@ li > ul {
 }
 
 .palette-row .label {
-    font-family:
-        "ITC Mixage Std Bold",
-        "Express 18 Bold",
-        "Segoe UI",
-        sans-serif,
-        "Gill Sans MT",
-        "Gill Sans MT Cyrillic Pro Bold";
+  font-family:
+    "ITC Mixage Std Bold",
+    "Express 18 Bold",
+    "Segoe UI",
+    sans-serif,
+    "Gill Sans MT",
+    "Gill Sans MT Cyrillic Pro Bold";
 
-    font-weight: 600;
-    letter-spacing: 0.2px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
 }
 
-.palette-row.show-value > .value {
+.palette-row.show-value>.value {
   display: block;
 }
 
@@ -433,7 +449,8 @@ li > ul {
 
 .inputs {
   display: flex;
-  flex-wrap: wrap;          /* allow inputs to flow onto new lines */
+  flex-wrap: wrap;
+  /* allow inputs to flow onto new lines */
   gap: 4px;
   align-items: center;
   /*flex: 1 1 auto;            grow to fill remaining space after label */
@@ -456,4 +473,139 @@ li > ul {
 
 .repeat-controls button:hover {
   background: #e5e5e5;
+}
+
+/* ================================
+   TABS
+================================ */
+.palette-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.palette-tabs button {
+  padding: 5px 14px;
+  font-size: 14px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  color: var(--text-secondary);
+  margin-bottom: -1px;
+  font-family:
+    "ITC Mixage Std Bold",
+    "Express 18 Bold",
+    "Segoe UI",
+    sans-serif,
+    "Gill Sans MT",
+    "Gill Sans MT Cyrillic Pro Bold";
+
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.palette-tabs button:hover {
+  color: var(--text-primary);
+}
+
+.palette-tabs button.active {
+  color: var(--accent-blue);
+  border-bottom-color: var(--accent-blue);
+  font-weight: 600;
+}
+
+
+/* ================================
+   AI MODE PANEL
+================================ */
+.ai-mode-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+.ai-chat-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ai-empty-state {
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-align: center;
+  margin-top: 20px;
+}
+
+.ai-message-row {
+  display: flex;
+}
+
+.ai-message-row.user {
+  justify-content: flex-end;
+}
+
+.ai-message-row.assistant {
+  justify-content: flex-start;
+}
+
+.ai-message-bubble {
+  max-width: 85%;
+  padding: 7px 11px;
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.ai-message-bubble.user {
+  background: var(--accent-blue);
+  color: #ffffff;
+  border-bottom-right-radius: 3px;
+}
+
+.ai-message-bubble.assistant {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-bottom-left-radius: 3px;
+}
+
+.ai-input-bar {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.ai-input-bar textarea {
+  flex: 1;
+  resize: none;
+  min-height: 32px;
+  max-height: 120px;
+  font-size: 12px;
+  padding: 6px 8px;
+  border-radius: 6px;
+}
+
+.send-button {
+  padding: 6px 14px;
+  background: var(--accent-blue);
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.send-button:hover {
+  background: #0055aa;
 }
