@@ -27,6 +27,10 @@ const PaletteApp = () => {
   const [activeTab, setActiveTab] = useState('palette'); // 'palette' | 'ai'
   const [aiInput, setAiInput] = useState('');
   const [aiMessages, setAiMessages] = useState([]);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState(false);
+  const [aiResults, setAiResults] = useState([]);
+  const [aiExpandedRows, setAiExpandedRows] = useState({});
 
   const paletteListRef = useRef(null);
   const qtBridgeRef = useRef(null); // holds the Qt bridge object when running inside QWebEngine
@@ -514,15 +518,41 @@ const PaletteApp = () => {
     setContextMenu(prev => ({ ...prev, visible: false }));
   };
 
-  const handleAiSend = () => {
-    if (!aiInput.trim()) return;
-    const userMessage = { role: 'user', content: aiInput };
-    const assistantMessage = {
-      role: 'assistant',
-      content: `Answer for: "${aiInput}"`,
-    };
-    setAiMessages(prev => [...prev, userMessage, assistantMessage]);
+  const mapAiResults = useCallback((nodes) => {
+    return nodes.map(node => ({
+      label: (node.title || '').split(' ')[0],
+      display: node.display || node.title || '',
+      args: Array.isArray(node.inputs) ? node.inputs : [],
+      item: node,
+    }));
+  }, []);
+
+  const handleAiSend = async () => {
+    if (!aiInput.trim() || aiLoading) return;
+    const query = aiInput.trim();
     setAiInput('');
+    setAiMessages(prev => [...prev, { role: 'user', content: query }]);
+    setAiLoading(true);
+    setAiError(false);
+    setAiResults([]);
+    setAiExpandedRows({});
+    try {
+      const res = await fetch('http://127.0.0.1:7432/ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query }),
+      });
+      const data = await res.json();
+      if (data.type === 'commands') {
+        setAiResults(mapAiResults(data.results));
+      } else {
+        setAiMessages(prev => [...prev, { role: 'assistant', content: data.message }]);
+      }
+    } catch {
+      setAiError(true);
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   return (
@@ -617,18 +647,54 @@ const PaletteApp = () => {
       ) : (
         <div className="ai-mode-panel">
           <div className="ai-chat-body">
-            {aiMessages.length === 0 ? (
-              <div className="ai-empty-state">{/*Ask me about ITASCA Software...*/}</div>
-            ) : (
-              aiMessages.map((msg, index) => (
-                <div key={index} className={`ai-message-row ${msg.role}`}>
-                  <div className={`ai-message-bubble ${msg.role}`}>
-                    {msg.content}
-                  </div>
+            {aiMessages.map((msg, index) => (
+              <div key={index} className={`ai-message-row ${msg.role}`}>
+                <div className={`ai-message-bubble ${msg.role}`}>
+                  {msg.content}
                 </div>
-              ))
+              </div>
+            ))}
+            {aiLoading && <div className="ai-loading">Searching…</div>}
+            {aiError && (
+              <div className="ai-message-bubble assistant">
+                Could not reach AI server.
+              </div>
             )}
           </div>
+
+          {aiResults.length > 0 && (
+            <>
+              <ContextMenu
+                {...contextMenu}
+                onClose={handleCloseContextMenu}
+                onUpOneLevel={goUpOneLevel}
+                onInsertLast={() => callQt('insertLastCommand', contextMenu.node?.item?.id)}
+                onInsertAll={() => callQt('insertAllCommand', contextMenu.node?.item?.id)}
+                onShowHelp={() => callQt('showHelpCommand', contextMenu.node?.item?.id)}
+              />
+              <PaletteList
+                ref={paletteListRef}
+                visibleRows={aiResults}
+                selectedIndex={selectedIndex}
+                expandedRows={aiExpandedRows}
+                onToggleExpand={(idx) =>
+                  setAiExpandedRows(prev => ({ ...prev, [idx]: !prev[idx] }))
+                }
+                onSelectRow={(index) => {
+                  setSelectedIndex(index);
+                  setSelectedRow(aiResults[index] || null);
+                }}
+                onContextMenu={handleContextMenu}
+                onRowClick={(row, index) => {
+                  setSelectedIndex(index);
+                  setSelectedRow(row);
+                  setAiExpandedRows(prev => ({ ...prev, [index]: !prev[index] }));
+                }}
+                helpContext={helpContext}
+              />
+            </>
+          )}
+
           <div className="ai-input-bar">
             <textarea
               value={aiInput}
@@ -642,8 +708,8 @@ const PaletteApp = () => {
                 }
               }}
             />
-            <button className="send-button" onClick={handleAiSend}>
-              Send
+            <button className="send-button" onClick={handleAiSend} disabled={aiLoading}>
+              {aiLoading ? '…' : 'Send'}
             </button>
           </div>
         </div>

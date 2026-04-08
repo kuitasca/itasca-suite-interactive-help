@@ -609,3 +609,10 @@ li>ul {
 .send-button:hover {
   background: #0055aa;
 }
+
+.ai-loading {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-style: italic;
+  padding: 4px 0;
+}
