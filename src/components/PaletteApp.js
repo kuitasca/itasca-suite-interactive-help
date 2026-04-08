@@ -519,13 +519,17 @@ const PaletteApp = () => {
   };
 
   const mapAiResults = useCallback((nodes) => {
-    return nodes.map(node => ({
-      label: (node.title || '').split(' ')[0],
-      display: node.display || node.title || '',
-      args: Array.isArray(node.inputs) ? node.inputs : [],
-      item: node,
-    }));
-  }, []);
+    return nodes.map(node => {
+      const match = allCommands.find(cmd => cmd.item.id === node.id);
+      if (match) return match;
+      return {
+        label: (node.title || '').split(' ')[0],
+        display: node.display || node.title || '',
+        args: Array.isArray(node.inputs) ? node.inputs : [],
+        item: node,
+      };
+    });
+  }, [allCommands]);
 
   const handleAiSend = async () => {
     if (!aiInput.trim() || aiLoading) return;
@@ -557,7 +561,6 @@ const PaletteApp = () => {
 
   return (
     <div className="palette-app" tabIndex={0}>
-      <TypeOverlay query={[...tokensFilter, currentTokenFilter].join(' ')} />
       <div className="palette-header">
         {/*<div className="title">
           {helpContext?.title}
@@ -621,6 +624,7 @@ const PaletteApp = () => {
 
       {activeTab === 'palette' ? (
         <>
+          <TypeOverlay query={[...tokensFilter, currentTokenFilter].join(' ')} />
           <ContextMenu
             {...contextMenu}
             onClose={handleCloseContextMenu}
