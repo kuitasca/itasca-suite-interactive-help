@@ -81,8 +81,9 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 4px 1px 4px 8px;
+
   /* top right bottom left */
-  border-bottom: 1px solid #e5e5e5;
+  /* border-bottom: 1px solid #e5e5e5;*/
 }
 
 
