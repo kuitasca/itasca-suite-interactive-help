@@ -29,8 +29,6 @@ const PaletteApp = () => {
   const [aiMessages, setAiMessages] = useState([]);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState(false);
-  const [aiResults, setAiResults] = useState([]);
-  const [aiExpandedRows, setAiExpandedRows] = useState({});
 
   const paletteListRef = useRef(null);
   const qtBridgeRef = useRef(null); // holds the Qt bridge object when running inside QWebEngine
@@ -518,19 +516,6 @@ const PaletteApp = () => {
     setContextMenu(prev => ({ ...prev, visible: false }));
   };
 
-  const mapAiResults = useCallback((nodes) => {
-    return nodes.map(node => {
-      const match = allCommands.find(cmd => cmd.item.id === node.id);
-      if (match) return match;
-      return {
-        label: (node.title || '').split(' ')[0],
-        display: node.display || node.title || '',
-        args: Array.isArray(node.inputs) ? node.inputs : [],
-        item: node,
-      };
-    });
-  }, [allCommands]);
-
   const handleAiSend = async () => {
     if (!aiInput.trim() || aiLoading) return;
     const query = aiInput.trim();
@@ -538,8 +523,7 @@ const PaletteApp = () => {
     setAiMessages(prev => [...prev, { role: 'user', content: query }]);
     setAiLoading(true);
     setAiError(false);
-    setAiResults([]);
-    setAiExpandedRows({});
+    setExpandedRows({});
     try {
       const res = await fetch('http://127.0.0.1:7432/ask', {
         method: 'POST',
@@ -547,10 +531,11 @@ const PaletteApp = () => {
         body: JSON.stringify({ query }),
       });
       const data = await res.json();
-      if (data.type === 'commands') {
-        setAiResults(mapAiResults(data.results));
-      } else {
-        setAiMessages(prev => [...prev, { role: 'assistant', content: data.message }]);
+      if (data.explanation) {
+        setAiMessages(prev => [...prev, { role: 'assistant', content: data.explanation }]);
+      }
+      if (data.commands?.length) {
+        handleSearchIndex(null, data.commands);
       }
     } catch {
       setAiError(true);
@@ -622,100 +607,64 @@ const PaletteApp = () => {
         </div>
       </div>
 
-      {activeTab === 'palette' ? (
-        <>
-          <TypeOverlay query={[...tokensFilter, currentTokenFilter].join(' ')} />
-          <ContextMenu
-            {...contextMenu}
-            onClose={handleCloseContextMenu}
-            onUpOneLevel={goUpOneLevel}
-            onInsertLast={() => callQt('insertLastCommand', contextMenu.node?.item?.id)}
-            onInsertAll={() => callQt('insertAllCommand', contextMenu.node?.item?.id)}
-            onShowHelp={() => callQt('showHelpCommand', contextMenu.node?.item?.id)}
-          />
-          <PaletteList
-            ref={paletteListRef}
-            visibleRows={visibleRows}
-            selectedIndex={selectedIndex}
-            expandedRows={expandedRows}
-            onToggleExpand={(idx) => setExpandedRows(prev => ({ ...prev, [idx]: !prev[idx] }))}
-            onSelectRow={(index) => {
-              setSelectedIndex(index);
-              setSelectedRow(visibleRows[index] || null);
-            }}
-            onContextMenu={handleContextMenu}
-            onRowClick={handleRowClick}
-            helpContext={helpContext}
-          />
-        </>
-      ) : (
-        <div className="ai-mode-panel">
-          <div className="ai-chat-body">
-            {aiMessages.map((msg, index) => (
-              <div key={index} className={`ai-message-row ${msg.role}`}>
-                <div className={`ai-message-bubble ${msg.role}`}>
-                  {msg.content}
-                </div>
-              </div>
-            ))}
-            {aiLoading && <div className="ai-loading">Searching…</div>}
-            {aiError && (
-              <div className="ai-message-bubble assistant">
-                Could not reach AI server.
-              </div>
-            )}
-          </div>
+      {activeTab === 'palette' && (
+        <TypeOverlay query={[...tokensFilter, currentTokenFilter].join(' ')} />
+      )}
 
-          {aiResults.length > 0 && (
-            <>
-              <ContextMenu
-                {...contextMenu}
-                onClose={handleCloseContextMenu}
-                onUpOneLevel={goUpOneLevel}
-                onInsertLast={() => callQt('insertLastCommand', contextMenu.node?.item?.id)}
-                onInsertAll={() => callQt('insertAllCommand', contextMenu.node?.item?.id)}
-                onShowHelp={() => callQt('showHelpCommand', contextMenu.node?.item?.id)}
-              />
-              <PaletteList
-                ref={paletteListRef}
-                visibleRows={aiResults}
-                selectedIndex={selectedIndex}
-                expandedRows={aiExpandedRows}
-                onToggleExpand={(idx) =>
-                  setAiExpandedRows(prev => ({ ...prev, [idx]: !prev[idx] }))
-                }
-                onSelectRow={(index) => {
-                  setSelectedIndex(index);
-                  setSelectedRow(aiResults[index] || null);
-                }}
-                onContextMenu={handleContextMenu}
-                onRowClick={(row, index) => {
-                  setSelectedIndex(index);
-                  setSelectedRow(row);
-                  setAiExpandedRows(prev => ({ ...prev, [index]: !prev[index] }));
-                }}
-                helpContext={helpContext}
-              />
-            </>
+      {activeTab === 'ai' && (
+        <div className="ai-chat-body">
+          {aiMessages.map((msg, index) => (
+            <div key={index} className={`ai-message-row ${msg.role}`}>
+              <div className={`ai-message-bubble ${msg.role}`}>{msg.content}</div>
+            </div>
+          ))}
+          {aiLoading && <div className="ai-loading">Searching…</div>}
+          {aiError && (
+            <div className="ai-message-bubble assistant">Could not reach AI server.</div>
           )}
+        </div>
+      )}
 
-          <div className="ai-input-bar">
-            <textarea
-              value={aiInput}
-              onChange={(e) => setAiInput(e.target.value)}
-              placeholder="Ask me about ITASCA Software commands..."
-              rows={1}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleAiSend();
-                }
-              }}
-            />
-            <button className="send-button" onClick={handleAiSend} disabled={aiLoading}>
-              {aiLoading ? '…' : 'Send'}
-            </button>
-          </div>
+      <ContextMenu
+        {...contextMenu}
+        onClose={handleCloseContextMenu}
+        onUpOneLevel={goUpOneLevel}
+        onInsertLast={() => callQt('insertLastCommand', contextMenu.node?.item?.id)}
+        onInsertAll={() => callQt('insertAllCommand', contextMenu.node?.item?.id)}
+        onShowHelp={() => callQt('showHelpCommand', contextMenu.node?.item?.id)}
+      />
+      <PaletteList
+        ref={paletteListRef}
+        visibleRows={visibleRows}
+        selectedIndex={selectedIndex}
+        expandedRows={expandedRows}
+        onToggleExpand={(idx) => setExpandedRows(prev => ({ ...prev, [idx]: !prev[idx] }))}
+        onSelectRow={(index) => {
+          setSelectedIndex(index);
+          setSelectedRow(visibleRows[index] || null);
+        }}
+        onContextMenu={handleContextMenu}
+        onRowClick={handleRowClick}
+        helpContext={helpContext}
+      />
+
+      {activeTab === 'ai' && (
+        <div className="ai-input-bar">
+          <textarea
+            value={aiInput}
+            onChange={(e) => setAiInput(e.target.value)}
+            placeholder="Ask me about ITASCA Software commands..."
+            rows={1}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleAiSend();
+              }
+            }}
+          />
+          <button className="send-button" onClick={handleAiSend} disabled={aiLoading}>
+            {aiLoading ? '…' : 'Send'}
+          </button>
         </div>
       )}
     </div>
