@@ -547,10 +547,11 @@ const PaletteApp = () => {
         body: JSON.stringify({ query }),
       });
       const data = await res.json();
-      if (data.type === 'commands') {
+      if (data.explanation) {
+        setAiMessages(prev => [...prev, { role: 'assistant', content: data.explanation }]);
+      }
+      if (data.results?.length) {
         setAiResults(mapAiResults(data.results));
-      } else {
-        setAiMessages(prev => [...prev, { role: 'assistant', content: data.message }]);
       }
     } catch {
       setAiError(true);
