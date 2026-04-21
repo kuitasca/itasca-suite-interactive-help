@@ -246,11 +246,17 @@ const PaletteApp = () => {
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
+      if (e.key === 'Home') {
         setCurrentTokenFilter('');
         setTokensFilter([]);
         handleSearchIndex('');
         e.preventDefault();
+        return;
+      }
+    
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        callQtCloseEvent('eventCloseFunction');
         return;
       }
 
@@ -461,30 +467,30 @@ const PaletteApp = () => {
   }, []);
 
   // Load debug data on mount
-  useEffect(() => {
-    const loadFromFile = async () => {
-      try {
-        const response = await fetch('treedebug.txt');
-        if (!response.ok) {
-          console.error(`Failed to load treedebug.txt: ${response.status} ${response.statusText}`);
-          alert(`Error loading file: ${response.status} ${response.statusText}\n\nMake sure treedebug.txt exists in the public folder.`);
-          return;
-        }
-        const text = await response.text();
-        const data = JSON.parse(text);
-        handleLoadTree(data);
-      } catch (error) {
-        console.error('Error loading debug data:', error);
-        if (error instanceof SyntaxError) {
-          alert('JSON parse error: ' + error.message + '\n\nMake sure treedebug.txt contains valid JSON.');
-        } else {
-          alert('Error loading file: ' + error.message);
-        }
-      }
-    };
+  // useEffect(() => {
+  //   const loadFromFile = async () => {
+  //     try {
+  //       const response = await fetch('treedebug.txt');
+  //       if (!response.ok) {
+  //         console.error(`Failed to load treedebug.txt: ${response.status} ${response.statusText}`);
+  //         alert(`Error loading file: ${response.status} ${response.statusText}\n\nMake sure treedebug.txt exists in the public folder.`);
+  //         return;
+  //       }
+  //       const text = await response.text();
+  //       const data = JSON.parse(text);
+  //       handleLoadTree(data);
+  //     } catch (error) {
+  //       console.error('Error loading debug data:', error);
+  //       if (error instanceof SyntaxError) {
+  //         alert('JSON parse error: ' + error.message + '\n\nMake sure treedebug.txt contains valid JSON.');
+  //       } else {
+  //         alert('Error loading file: ' + error.message);
+  //       }
+  //     }
+  //   };
 
-    loadFromFile();
-  }, [handleLoadTree]);
+  //   loadFromFile();
+  // }, [handleLoadTree]);
 
   const handleRowClick = (row, index) => {
 
@@ -531,6 +537,17 @@ const PaletteApp = () => {
     });
   }, [allCommands]);
 
+  const mapAiResults2 = useCallback((nodes) => {
+    const q = nodes[0];
+    const results = allCommands.filter(cmd =>
+      cmd.searchKey.includes(q) ||
+      cmd.searchTokens.some(t => t.includes(q))
+    ).slice(0, MAX_RESULTS);
+
+    return results; //setFilteredFlatRows(results);
+
+  }, [allCommands]);
+
   const handleAiSend = async () => {
     if (!aiInput.trim() || aiLoading) return;
     const query = aiInput.trim();
@@ -547,11 +564,13 @@ const PaletteApp = () => {
         body: JSON.stringify({ query }),
       });
       const data = await res.json();
+      console.log(data)
       if (data.explanation) {
         setAiMessages(prev => [...prev, { role: 'assistant', content: data.explanation }]);
       }
       if (data.results?.length) {
-        setAiResults(mapAiResults(data.results));
+        
+        setAiResults(mapAiResults2(data.results));
       }
     } catch {
       setAiError(true);
@@ -578,7 +597,7 @@ const PaletteApp = () => {
             className={activeTab === 'ai' ? 'active' : ''}
             onClick={() => setActiveTab('ai')}
           >
-            AI Mode
+            AI Mode(beta)
           </button>
         </div>
         {/* top‑right utility bar */}

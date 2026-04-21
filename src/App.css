@@ -560,6 +560,13 @@ li>ul {
   padding: 7px 11px;
   border-radius: 10px;
   font-size: 12px;
+  font-family:
+  "ITC Mixage Std Bold",
+  "Express 18 Bold",
+  "Segoe UI",
+  sans-serif,
+  "Gill Sans MT",
+  "Gill Sans MT Cyrillic Pro Bold";
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-word;
@@ -569,6 +576,14 @@ li>ul {
   background: var(--accent-blue);
   color: #ffffff;
   border-bottom-right-radius: 3px;
+  font-family:
+  "ITC Mixage Std Bold",
+  "Express 18 Bold",
+  "Segoe UI",
+  sans-serif,
+  "Gill Sans MT",
+  "Gill Sans MT Cyrillic Pro Bold";
+  line-height: 1.5;
 }
 
 .ai-message-bubble.assistant {
@@ -594,6 +609,14 @@ li>ul {
   font-size: 12px;
   padding: 6px 8px;
   border-radius: 6px;
+    font-family:
+  "ITC Mixage Std Bold",
+  "Express 18 Bold",
+  "Segoe UI",
+  sans-serif,
+  "Gill Sans MT",
+  "Gill Sans MT Cyrillic Pro Bold";
+  line-height: 1.5;
 }
 
 .send-button {
@@ -605,6 +628,14 @@ li>ul {
   cursor: pointer;
   font-size: 12px;
   flex-shrink: 0;
+    font-family:
+  "ITC Mixage Std Bold",
+  "Express 18 Bold",
+  "Segoe UI",
+  sans-serif,
+  "Gill Sans MT",
+  "Gill Sans MT Cyrillic Pro Bold";
+  line-height: 1.5;
 }
 
 .send-button:hover {
@@ -616,4 +647,12 @@ li>ul {
   font-size: 12px;
   font-style: italic;
   padding: 4px 0;
+  font-family:
+  "ITC Mixage Std Bold",
+  "Express 18 Bold",
+  "Segoe UI",
+  sans-serif,
+  "Gill Sans MT",
+  "Gill Sans MT Cyrillic Pro Bold";
+  line-height: 1.5;
 }
