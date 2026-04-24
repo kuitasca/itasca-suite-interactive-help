@@ -103,13 +103,13 @@ const PaletteApp = () => {
     setFishTreeData(datafish);
 
     //for testing mode without Qt, we can directly set the tree data and help context here
-    // setHelpContext({
-    //   slots: Array.isArray(datacommand.slots) ? datacommand.slots : [],
-    //   groups: Array.isArray(datacommand.groups) ? datacommand.groups : [],
-    //   geometrySets: Array.isArray(datacommand.geometrySets) ? datacommand.geometrySets : [],
-    //   title: datacommand.title || 'Commands List',
-    //   isFish: true
-    // });
+    setHelpContext({
+      slots: Array.isArray(datacommand.slots) ? datacommand.slots : [],
+      groups: Array.isArray(datacommand.groups) ? datacommand.groups : [],
+      geometrySets: Array.isArray(datacommand.geometrySets) ? datacommand.geometrySets : [],
+      title: datacommand.title || 'Commands List',
+      isFish: true
+    });
   }, []);
 
   // Search index
@@ -504,51 +504,51 @@ const PaletteApp = () => {
   }, []);
 
   // Load debug data on mount
-  // useEffect(() => {
-  //   const loadFromFile = async () => {
-  //     let datac, dataf;
-  //     try {
-  //       const response = await fetch('commandtreedebug.txt');
-  //       if (!response.ok) {
-  //         console.error(`Failed to load commandtreedebug.txt: ${response.status} ${response.statusText}`);
-  //         alert(`Error loading file: ${response.status} ${response.statusText}\n\nMake sure commandtreedebug.txt exists in the public folder.`);
-  //         return;
-  //       }
-  //       const text = await response.text();
-  //       datac = JSON.parse(text);
+  useEffect(() => {
+    const loadFromFile = async () => {
+      let datac, dataf;
+      try {
+        const response = await fetch('commandtreedebug.txt');
+        if (!response.ok) {
+          console.error(`Failed to load commandtreedebug.txt: ${response.status} ${response.statusText}`);
+          alert(`Error loading file: ${response.status} ${response.statusText}\n\nMake sure commandtreedebug.txt exists in the public folder.`);
+          return;
+        }
+        const text = await response.text();
+        datac = JSON.parse(text);
         
-  //     } catch (error) {
-  //       console.error('Error loading debug data:', error);
-  //       if (error instanceof SyntaxError) {
-  //         alert('JSON parse error: ' + error.message + '\n\nMake sure commandtreedebug.txt contains valid JSON.');
-  //       } else {
-  //         alert('Error loading file: ' + error.message);
-  //       }
-  //     }
+      } catch (error) {
+        console.error('Error loading debug data:', error);
+        if (error instanceof SyntaxError) {
+          alert('JSON parse error: ' + error.message + '\n\nMake sure commandtreedebug.txt contains valid JSON.');
+        } else {
+          alert('Error loading file: ' + error.message);
+        }
+      }
    
-  //   try {
-  //       const response = await fetch('fishtreedebug.txt');
-  //       if (!response.ok) {
-  //         console.error(`Failed to load fishtreedebug.txt: ${response.status} ${response.statusText}`);
-  //         alert(`Error loading file: ${response.status} ${response.statusText}\n\nMake sure fishtreedebug.txt exists in the public folder.`);
-  //         return;
-  //       }
-  //       const text = await response.text();
-  //       dataf = JSON.parse(text);
+    try {
+        const response = await fetch('fishtreedebug.txt');
+        if (!response.ok) {
+          console.error(`Failed to load fishtreedebug.txt: ${response.status} ${response.statusText}`);
+          alert(`Error loading file: ${response.status} ${response.statusText}\n\nMake sure fishtreedebug.txt exists in the public folder.`);
+          return;
+        }
+        const text = await response.text();
+        dataf = JSON.parse(text);
         
-  //     } catch (error) {
-  //       console.error('Error loading debug data:', error);
-  //       if (error instanceof SyntaxError) {
-  //         alert('JSON parse error: ' + error.message + '\n\nMake sure treedebug.txt contains valid JSON.');
-  //       } else {
-  //         alert('Error loading file: ' + error.message);
-  //       }
-  //     }
-  //     handleLoadTree(datac, dataf);
-  //   };
+      } catch (error) {
+        console.error('Error loading debug data:', error);
+        if (error instanceof SyntaxError) {
+          alert('JSON parse error: ' + error.message + '\n\nMake sure treedebug.txt contains valid JSON.');
+        } else {
+          alert('Error loading file: ' + error.message);
+        }
+      }
+      handleLoadTree(datac, dataf);
+    };
     
-  //   loadFromFile();
-  // }, [handleLoadTree, resetTreeUIFunction]);
+    loadFromFile();
+  }, [handleLoadTree, resetTreeUIFunction]);
 
   const handleRowClick = (row, index) => {
 
@@ -719,6 +719,7 @@ const PaletteApp = () => {
             onInsertLast={() => callQt('insertLastCommand', contextMenu.node?.item?.id)}
             onInsertAll={() => callQt('insertAllCommand', contextMenu.node?.item?.id)}
             onShowHelp={() => callQt('showHelpCommand', contextMenu.node?.item?.id)}
+            helpContext={helpContext}
           />
           <PaletteList
             ref={paletteListRef}
@@ -762,6 +763,7 @@ const PaletteApp = () => {
                 onInsertLast={() => callQt('insertLastCommand', contextMenu.node?.item?.id)}
                 onInsertAll={() => callQt('insertAllCommand', contextMenu.node?.item?.id)}
                 onShowHelp={() => callQt('showHelpCommand', contextMenu.node?.item?.id)}
+                helpContext={helpContext}
               />
               <PaletteList
                 ref={paletteListRef}

@@ -9,7 +9,8 @@ const ContextMenu = ({
   onInsertAll,
   onInsertLast,
   onUpOneLevel,
-  onShowHelp
+  onShowHelp,
+  helpContext
 }) => {
 
   const menuRef = useRef(null);
@@ -97,12 +98,14 @@ const ContextMenu = ({
 
       <div className="separator" />
 
-      <div className="menu-item" onClick={handleInsertAll}>
-        Insert all command
-      </div>
+      {!helpContext?.isFish && (
+        <div className="menu-item" onClick={handleInsertAll}>
+          Insert all command
+        </div>
+      )}
 
       <div className="menu-item" onClick={handleInsertLast}>
-        Insert last command
+        Insert command
       </div>
       <div className="separator" />
       <div className="menu-item" onClick={handleShowHelp}>
