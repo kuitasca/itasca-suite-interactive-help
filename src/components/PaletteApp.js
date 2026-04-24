@@ -9,6 +9,8 @@ import { ReactComponent as CloseIcon } from './assets/icons/close_off.svg';
 
 const PaletteApp = () => {
   const [treeData, setTreeData] = useState(null);
+  const [commandsTreeData, setCommandsTreeData] = useState(null);
+  const [fishTreeData, setFishTreeData] = useState(null);
   const [allCommands, setAllCommands] = useState([]);
   const [visibleRows, setVisibleRows] = useState([]);
   const [selectedIndex, setSelectedIndex] = useState(-1);
@@ -95,28 +97,20 @@ const PaletteApp = () => {
   }, []);
 
   // Load tree data
-  const handleLoadTree = useCallback((data) => {
-    setTreeData(data.children);
-    setHelpContext({
-      slots: Array.isArray(data.slots) ? data.slots : [],
-      groups: Array.isArray(data.groups) ? data.groups : [],
-      geometrySets: Array.isArray(data.geometrySets) ? data.geometrySets : [],
-      title: data.title || 'Title'
-    });
+  const handleLoadTree = useCallback((datacommand, datafish) => {
+    //setTreeData(datacommand.children);
+    setCommandsTreeData(datacommand);
+    setFishTreeData(datafish);
 
-    let commands = [];
-    if (data.children) {
-      for (const node of data.children) {
-        const childCommands = buildIndex(node);
-        if (childCommands.length) {
-          commands.push(...childCommands);
-        }
-      }
-    }
-
-    setAllCommands(commands);
-    handleSearchIndex('');
-  }, [buildIndex]);
+    //for testing mode without Qt, we can directly set the tree data and help context here
+    // setHelpContext({
+    //   slots: Array.isArray(datacommand.slots) ? datacommand.slots : [],
+    //   groups: Array.isArray(datacommand.groups) ? datacommand.groups : [],
+    //   geometrySets: Array.isArray(datacommand.geometrySets) ? datacommand.geometrySets : [],
+    //   title: datacommand.title || 'Commands List',
+    //   isFish: true
+    // });
+  }, []);
 
   // Search index
   const handleSearchIndex = useCallback((query) => {
@@ -423,6 +417,58 @@ const PaletteApp = () => {
       }
     }
   }, [expandedRows, selectedIndex]);
+ 
+  const resetTreeUIFunction = useCallback((data) => {
+      setCurrentTokenFilter('');
+      setTokensFilter([]);
+      clearSelection();
+      updateOverlayAndSearch('');
+      // we can optionally update help context here if the data includes it,
+      // or we could have a separate method for that
+      setHelpContext({
+        slots: Array.isArray(data.slots) ? data.slots : [],
+        groups: Array.isArray(data.groups) ? data.groups : [],
+        geometrySets: Array.isArray(data.geometrySets) ? data.geometrySets : [],
+        title: data.title + ' List',
+        isFish: data.isFish || false
+      });
+      let commands = [];
+      if (data.isFish) {
+        setTreeData(fishTreeData?.children);
+        if (fishTreeData?.children) {
+          for (const node of fishTreeData.children) {
+            const childCommands = buildIndex(node);
+            if (childCommands.length) {
+              commands.push(...childCommands);
+            }
+          }
+        } /*else {
+          alert('Fish tree data is missing children');
+        }  */
+      } else {
+        setTreeData(commandsTreeData?.children);
+        if (commandsTreeData?.children) {
+          for (const node of commandsTreeData.children) {
+            const childCommands = buildIndex(node);
+            if (childCommands.length) {
+              commands.push(...childCommands);
+            }
+          }
+        } /*else {
+          alert('Commands tree data is missing children');
+        } */
+      }
+
+      setAllCommands(commands);
+      handleSearchIndex('');
+    }, [buildIndex, clearSelection, updateOverlayAndSearch, handleSearchIndex, fishTreeData, commandsTreeData]);
+
+  // Trigger tree UI reset when tree data is loaded from Qt (if not already loaded)
+  useEffect(() => {
+    if (commandsTreeData && !treeData) {
+      resetTreeUIFunction(helpContext, commandsTreeData, fishTreeData);
+    }
+  }, [commandsTreeData, fishTreeData, treeData, resetTreeUIFunction, helpContext]);
 
   // Qt bridge initialization and global methods
   useEffect(() => {
@@ -439,23 +485,14 @@ const PaletteApp = () => {
 
     // expose utilities for Qt to call
     window.resetTreeUI = (data) => {
-      setCurrentTokenFilter('');
-      setTokensFilter([]);
-      clearSelection();
-      updateOverlayAndSearch('');
-      // we can optionally update help context here if the data includes it,
-      // or we could have a separate method for that
-      setHelpContext({
-        slots: Array.isArray(data.slots) ? data.slots : [],
-        groups: Array.isArray(data.groups) ? data.groups : [],
-        geometrySets: Array.isArray(data.geometrySets) ? data.geometrySets : [],
-        title: data.title || 'Title'
-      });
+      resetTreeUIFunction(data);
     };
-    window.loadTree = (data) => {
-      handleLoadTree(data);
+
+    window.loadTree = (datacommand, datafish) => {
+      handleLoadTree(datacommand,datafish);
     };
-  }, [clearSelection, handleLoadTree, updateOverlayAndSearch]);
+
+  }, [clearSelection, handleLoadTree, updateOverlayAndSearch, resetTreeUIFunction]);
 
   // close context menu when window loses focus
   useEffect(() => {
@@ -469,16 +506,36 @@ const PaletteApp = () => {
   // Load debug data on mount
   // useEffect(() => {
   //   const loadFromFile = async () => {
+  //     let datac, dataf;
   //     try {
-  //       const response = await fetch('treedebug.txt');
+  //       const response = await fetch('commandtreedebug.txt');
   //       if (!response.ok) {
-  //         console.error(`Failed to load treedebug.txt: ${response.status} ${response.statusText}`);
-  //         alert(`Error loading file: ${response.status} ${response.statusText}\n\nMake sure treedebug.txt exists in the public folder.`);
+  //         console.error(`Failed to load commandtreedebug.txt: ${response.status} ${response.statusText}`);
+  //         alert(`Error loading file: ${response.status} ${response.statusText}\n\nMake sure commandtreedebug.txt exists in the public folder.`);
   //         return;
   //       }
   //       const text = await response.text();
-  //       const data = JSON.parse(text);
-  //       handleLoadTree(data);
+  //       datac = JSON.parse(text);
+        
+  //     } catch (error) {
+  //       console.error('Error loading debug data:', error);
+  //       if (error instanceof SyntaxError) {
+  //         alert('JSON parse error: ' + error.message + '\n\nMake sure commandtreedebug.txt contains valid JSON.');
+  //       } else {
+  //         alert('Error loading file: ' + error.message);
+  //       }
+  //     }
+   
+  //   try {
+  //       const response = await fetch('fishtreedebug.txt');
+  //       if (!response.ok) {
+  //         console.error(`Failed to load fishtreedebug.txt: ${response.status} ${response.statusText}`);
+  //         alert(`Error loading file: ${response.status} ${response.statusText}\n\nMake sure fishtreedebug.txt exists in the public folder.`);
+  //         return;
+  //       }
+  //       const text = await response.text();
+  //       dataf = JSON.parse(text);
+        
   //     } catch (error) {
   //       console.error('Error loading debug data:', error);
   //       if (error instanceof SyntaxError) {
@@ -487,10 +544,11 @@ const PaletteApp = () => {
   //         alert('Error loading file: ' + error.message);
   //       }
   //     }
+  //     handleLoadTree(datac, dataf);
   //   };
-
+    
   //   loadFromFile();
-  // }, [handleLoadTree]);
+  // }, [handleLoadTree, resetTreeUIFunction]);
 
   const handleRowClick = (row, index) => {
 
@@ -558,11 +616,20 @@ const PaletteApp = () => {
     setAiResults([]);
     setAiExpandedRows({});
     try {
-      const res = await fetch('http://127.0.0.1:7432/ask', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query }),
-      });
+      let res = 0;
+      if(!helpContext.isFish){
+        res = await fetch('http://127.0.0.1:7432/ask?db=commands', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query }),
+        });
+      }  else{
+        res = await fetch('http://127.0.0.1:7432/ask?db=fish', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query }),
+        });
+      }
       const data = await res.json();
       console.log(data)
       if (data.explanation) {
@@ -591,7 +658,7 @@ const PaletteApp = () => {
             className={activeTab === 'palette' ? 'active' : ''}
             onClick={() => setActiveTab('palette')}
           >
-            Commands List
+            {helpContext?.title}
           </button>
           <button
             className={activeTab === 'ai' ? 'active' : ''}
