@@ -158,29 +158,55 @@ const PaletteApp = () => {
         getLabel(n).toLowerCase().startsWith(lastToken)
       );
 
-      for (const node of levelMatches) {
-        const name = getLabel(node);
-        const displayName = getDisplay(node);
-        const fullLabelPath = [...path, name].join(' ');
-        const fullDisplayPath = [...displayPath, displayName].join(' ');
+      if (helpContext?.isFish) {
+        // Fish mode: show only leaf command names without full paths
+        for (const node of levelMatches) {
+          const name = getLabel(node);
+          const fullPath = [...path, name].join(' ');
 
-        results.push({
-          label: fullLabelPath,
-          display: fullDisplayPath,
-          item: node
-        });
+          results.push({
+            label: fullPath,
+            display: getDisplay(node),
+            item: node
+          });
 
-        if (node.children?.length) {
-          for (const child of node.children) {
-            const childName = getLabel(child);
-            const childDisplay = getDisplay(child);
-            const fullLabelChildPath = [...path, name, childName].join(' ');
-            const fullDisplayChildPath = [...displayPath, displayName, childDisplay].join(' ');
-            results.push({
-              label: fullLabelChildPath,
-              display: fullDisplayChildPath,
-              item: child
-            });
+          if (node.children?.length) {
+            for (const child of node.children) {
+              const childName = getLabel(child);
+              results.push({
+                label: [...path, name, childName].join(' '),
+                display: getDisplay(child),
+                item: child
+              });
+            }
+          }
+        }
+      } else {
+        // Palette mode: show full display paths
+        for (const node of levelMatches) {
+          const name = getLabel(node);
+          const displayName = getDisplay(node);
+          const fullLabelPath = [...path, name].join(' ');
+          const fullDisplayPath = [...displayPath, displayName].join(' ');
+
+          results.push({
+            label: fullLabelPath,
+            display: fullDisplayPath,
+            item: node
+          });
+
+          if (node.children?.length) {
+            for (const child of node.children) {
+              const childName = getLabel(child);
+              const childDisplay = getDisplay(child);
+              const fullLabelChildPath = [...path, name, childName].join(' ');
+              const fullDisplayChildPath = [...displayPath, displayName, childDisplay].join(' ');
+              results.push({
+                label: fullLabelChildPath,
+                display: fullDisplayChildPath,
+                item: child
+              });
+            }
           }
         }
       }
@@ -190,7 +216,7 @@ const PaletteApp = () => {
     const newIndex = results.length > 0 ? 0 : -1;
     setSelectedIndex(newIndex);
     setSelectedRow(newIndex >= 0 ? results[0] : null);
-  }, [treeData]);
+  }, [treeData, helpContext]);
 
   // Helpers
   const clearSelection = useCallback(() => {
