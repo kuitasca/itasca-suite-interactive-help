@@ -374,19 +374,37 @@ const PaletteApp = () => {
     if (!filterActive) return;
 
     const q = debouncedFilterQuery.trim().toLowerCase();
+    let results = [];
 
     if (!q) {
-      setFilteredFlatRows(allCommands.slice(0, 200));
-      return;
+      results = allCommands.slice(0, 200);
+    } else {
+      results = allCommands.filter(cmd =>
+        cmd.searchKey.includes(q) ||
+        cmd.searchTokens.some(t => t.includes(q))
+      ).slice(0, MAX_RESULTS);
     }
 
-    const results = allCommands.filter(cmd =>
-      cmd.searchKey.includes(q) ||
-      cmd.searchTokens.some(t => t.includes(q))
-    ).slice(0, MAX_RESULTS);
+    // In fish mode, filter out parent commands (those with children) and show only leaf command names
+    if (helpContext?.isFish) {
+      results = results
+        .filter(cmd => !cmd.item?.children || cmd.item.children.length === 0)
+        .map(cmd => {
+          // Remove (2d only) or (3d only) markers and extract the command name
+          let display = cmd.display.trim().replace(/\s*\([23]d\s+only\)\s*$/, '');
+          // Take the last token (the actual command name, not the parent)
+          const parts = display.split(/\s+/);
+          const leafCommand = parts[parts.length - 1] || cmd.display;
+          
+          return {
+            ...cmd,
+            display: leafCommand
+          };
+        });
+    }
 
     setFilteredFlatRows(results);
-  }, [filterActive, debouncedFilterQuery, allCommands]);
+  }, [filterActive, debouncedFilterQuery, allCommands, helpContext]);
   // scroll selected row into view when it changes
   useEffect(() => {
     const list = paletteListRef.current;
