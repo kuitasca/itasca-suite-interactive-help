@@ -421,7 +421,9 @@ const PaletteApp = () => {
           // Take the last token (the actual command name, not the parent)
           const parts = display.split(/\s+/);
           const leafCommand = parts[parts.length - 1] || cmd.display;
-          
+          if(cmd.display.contains('(2d only)') || cmd.display.contains('(3d only)')) {
+            leafCommand += cmd.display.includes('(2d only)') ? ' (2d only)' : ' (3d only)';
+          }          
           return {
             ...cmd,
             display: leafCommand
