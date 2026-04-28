@@ -27,10 +27,12 @@ const PaletteApp = () => {
   const [filteredFlatRows, setFilteredFlatRows] = useState([]);
 
   const [activeTab, setActiveTab] = useState('palette'); // 'palette' | 'ai'
+  const [filterAIActive, setFilterAIActive] = useState(false);
   const [aiInput, setAiInput] = useState('');
   const [aiMessages, setAiMessages] = useState([]);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState(false);
+  const [aiErrorMessage, setAiErrorMessage] = useState('');
   const [aiResults, setAiResults] = useState([]);
   const [aiExpandedRows, setAiExpandedRows] = useState({});
 
@@ -384,20 +386,20 @@ const PaletteApp = () => {
 
   // Update search index when query changes
   useEffect(() => {
-    if (filterActive) return;   // prevent mixing search systems
+    if (filterActive || filterAIActive) return;   // prevent mixing search systems
 
     const fullQuery = [...tokensFilter, currentTokenFilter].join(' ').trim();
     handleSearchIndex(fullQuery);
-  }, [tokensFilter, currentTokenFilter, handleSearchIndex, filterActive]);
+  }, [tokensFilter, currentTokenFilter, handleSearchIndex, filterActive, filterAIActive]);
 
   useEffect(() => {
-    if (filterActive) {
+    if (filterActive || filterAIActive) {
       setVisibleRows(filteredFlatRows);
     }
-  }, [filterActive, filteredFlatRows]);
+  }, [filterActive, filterAIActive, filteredFlatRows]);
 
   useEffect(() => {
-    if (!filterActive) return;
+    if (!filterActive && !filterAIActive) return;
 
     const q = debouncedFilterQuery.trim().toLowerCase();
     let results = [];
@@ -420,8 +422,8 @@ const PaletteApp = () => {
           let display = cmd.display.trim().replace(/\s*\([23]d\s+only\)\s*$/, '');
           // Take the last token (the actual command name, not the parent)
           const parts = display.split(/\s+/);
-          const leafCommand = parts[parts.length - 1] || cmd.display;
-          if(cmd.display.contains('(2d only)') || cmd.display.contains('(3d only)')) {
+          let leafCommand = parts[parts.length - 1] || cmd.display;
+          if(cmd.display.includes('(2d only)') || cmd.display.includes('(3d only)')) {
             leafCommand += cmd.display.includes('(2d only)') ? ' (2d only)' : ' (3d only)';
           }          
           return {
@@ -432,7 +434,7 @@ const PaletteApp = () => {
     }
 
     setFilteredFlatRows(results);
-  }, [filterActive, debouncedFilterQuery, allCommands, helpContext]);
+  }, [filterActive, filterAIActive, debouncedFilterQuery, allCommands, helpContext]);
   // scroll selected row into view when it changes
   useEffect(() => {
     const list = paletteListRef.current;
@@ -585,7 +587,7 @@ const PaletteApp = () => {
       } catch (error) {
         console.error('Error loading debug data:', error);
         if (error instanceof SyntaxError) {
-          alert('JSON parse error: ' + error.message + '\n\nMake sure treedebug.txt contains valid JSON.');
+          alert('JSON parse error: ' + error.message + '\n\nMake sure fishtreedebug.txt contains valid JSON.');
         } else {
           alert('Error loading file: ' + error.message);
         }
@@ -642,13 +644,42 @@ const PaletteApp = () => {
   }, [allCommands]);
 
   const mapAiResults2 = useCallback((nodes) => {
-    const q = nodes[0];
-    const results = allCommands.filter(cmd =>
-      cmd.searchKey.includes(q) ||
-      cmd.searchTokens.some(t => t.includes(q))
-    ).slice(0, MAX_RESULTS);
-
-    return results; //setFilteredFlatRows(results);
+    // Map each AI result to a command object from allCommands
+    // AI results have: {command, syntax, source, score}
+    console.log('mapAiResults2 called with nodes:', nodes);
+    
+    const results = nodes
+      .map(node => {
+        const commandName = node.command || node.syntax || '';
+        
+        // Try to find match by command name in allCommands
+        let match = allCommands.find(cmd => 
+          cmd.display.toLowerCase() === commandName.toLowerCase() ||
+          cmd.searchKey.includes(commandName.toLowerCase()) ||
+          cmd.item.title?.toLowerCase() === commandName.toLowerCase()
+        );
+        
+        if (match) return match;
+        
+        // If no match, create a command object from the node
+        return {
+          label: commandName.split(' ')[0],
+          display: commandName,
+          args: [],
+          item: {
+            title: commandName,
+            display: commandName,
+            id: commandName
+          },
+          searchKey: commandName.toLowerCase(),
+          searchTokens: commandName.toLowerCase().split(/[\s\-_/]+/)
+        };
+      })
+      .filter(Boolean)
+      .slice(0, MAX_RESULTS);
+    
+    console.log('mapAiResults2 returning:', results.length, 'items');
+    return results;
 
   }, [allCommands]);
 
@@ -659,6 +690,7 @@ const PaletteApp = () => {
     setAiMessages(prev => [...prev, { role: 'user', content: query }]);
     setAiLoading(true);
     setAiError(false);
+    setAiErrorMessage('');
     setAiResults([]);
     setAiExpandedRows({});
     try {
@@ -682,11 +714,12 @@ const PaletteApp = () => {
         setAiMessages(prev => [...prev, { role: 'assistant', content: data.explanation }]);
       }
       if (data.results?.length) {
-        
         setAiResults(mapAiResults2(data.results));
       }
-    } catch {
+    } catch (error) {
+      console.error('AI Server Error:', error);
       setAiError(true);
+      setAiErrorMessage(error.message || 'Could not reach AI server');
     } finally {
       setAiLoading(false);
     }
@@ -702,13 +735,19 @@ const PaletteApp = () => {
         <div className="palette-tabs">
           <button
             className={activeTab === 'palette' ? 'active' : ''}
-            onClick={() => setActiveTab('palette')}
+            onClick={() => {
+              setActiveTab('palette');
+              setFilterAIActive(false);
+            }}
           >
             {helpContext?.title}
           </button>
           <button
             className={activeTab === 'ai' ? 'active' : ''}
-            onClick={() => setActiveTab('ai')}
+            onClick={() => {
+              setActiveTab('ai');
+              setFilterAIActive(true);
+            }}
           >
             AI Mode(beta)
           </button>
@@ -795,7 +834,7 @@ const PaletteApp = () => {
             {aiLoading && <div className="ai-loading">Searching…</div>}
             {aiError && (
               <div className="ai-message-bubble assistant">
-                Could not reach AI server.
+                {aiErrorMessage || 'Could not reach AI server.'}
               </div>
             )}
           </div>
