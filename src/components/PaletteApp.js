@@ -648,7 +648,7 @@ const PaletteApp = () => {
     // AI results have: {command, syntax, source, score}
     console.log('mapAiResults2 called with nodes:', nodes);
     
-    const results = nodes
+    let results = nodes
       .map(node => {
         const commandName = node.command || node.syntax || '';
         
@@ -677,11 +677,29 @@ const PaletteApp = () => {
       })
       .filter(Boolean)
       .slice(0, MAX_RESULTS);
+
+    // In fish mode, filter out parent commands and show only leaf command names
+    if (helpContext?.isFish) {
+      results = results
+        .filter(cmd => !cmd.item?.children || cmd.item.children.length === 0)
+        .map(cmd => {
+          let display = cmd.display.trim().replace(/\s*\([23]d\s+only\)\s*$/, '');
+          const parts = display.split(/\s+/);
+          let leafCommand = parts[parts.length - 1] || cmd.display;
+          if(cmd.display.includes('(2d only)') || cmd.display.includes('(3d only)')) {
+            leafCommand += cmd.display.includes('(2d only)') ? ' (2d only)' : ' (3d only)';
+          }
+          return {
+            ...cmd,
+            display: leafCommand
+          };
+        });
+    }
     
     console.log('mapAiResults2 returning:', results.length, 'items');
     return results;
 
-  }, [allCommands]);
+  }, [allCommands, helpContext]);
 
   const handleAiSend = async () => {
     if (!aiInput.trim() || aiLoading) return;
