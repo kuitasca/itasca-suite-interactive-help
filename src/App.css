@@ -570,6 +570,10 @@ li>ul {
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-word;
+  user-select: text;
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
 }
 
 .ai-message-bubble.user {

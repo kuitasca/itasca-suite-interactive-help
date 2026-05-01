@@ -18,6 +18,7 @@ const PaletteApp = () => {
   const [tokensFilter, setTokensFilter] = useState([]);
   const [mode, setMode] = useState('palette');
   const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, node: null });
+  const [bubbleContextMenu, setBubbleContextMenu] = useState({ visible: false, x: 0, y: 0, selectedText: '' });
   const [selectedRow, setSelectedRow] = useState(null);
   const [helpContext, setHelpContext] = useState({ slots: [], groups: [], geometrySets: [], title: 'Title' });
   const [expandedRows, setExpandedRows] = useState({});
@@ -542,13 +543,17 @@ const PaletteApp = () => {
 
   }, [clearSelection, handleLoadTree, updateOverlayAndSearch, resetTreeUIFunction]);
 
-  // close context menu when window loses focus
+  // Prevent browser context menu on AI bubbles
   useEffect(() => {
-    const handleBlur = () => {
-      handleCloseContextMenu();
+    const handleContextMenu = (e) => {
+      if (e.target.closest('.ai-message-bubble')) {
+        e.preventDefault();
+        return false;
+      }
     };
-    window.addEventListener('blur', handleBlur);
-    return () => window.removeEventListener('blur', handleBlur);
+
+    document.addEventListener('contextmenu', handleContextMenu, true);
+    return () => document.removeEventListener('contextmenu', handleContextMenu, true);
   }, []);
 
   // Load debug data on mount
@@ -624,10 +629,49 @@ const PaletteApp = () => {
     setSelectedIndex(index);
     setSelectedRow(row);
     setContextMenu({ visible: true, x, y, node: row });
+    setBubbleContextMenu({ visible: false, x: 0, y: 0, selectedText: '' });
+  };
+
+  const handleBubbleContextMenu = (e) => {
+    const selectedText = window.getSelection()?.toString().trim() || '';
+    if (!selectedText) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu(prev => ({ ...prev, visible: false }));
+    setBubbleContextMenu({
+      visible: true,
+      x: e.clientX,
+      y: e.clientY,
+      selectedText
+    });
+  };
+
+  const handleBubbleMouseUp = (e) => {
+    if (e.button !== 0) return;
+
+    const selectedText = window.getSelection()?.toString().trim() || '';
+    if (!selectedText) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu(prev => ({ ...prev, visible: false }));
+
+    const selection = window.getSelection();
+    const range = selection.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+
+    setBubbleContextMenu({
+      visible: true,
+      x: rect.left,
+      y: rect.bottom + 5,
+      selectedText
+    });
   };
 
   const handleCloseContextMenu = () => {
     setContextMenu(prev => ({ ...prev, visible: false }));
+    setBubbleContextMenu(prev => ({ ...prev, visible: false, selectedText: '' }));
   };
 
   const mapAiResults = useCallback((nodes) => {
@@ -701,9 +745,8 @@ const PaletteApp = () => {
 
   }, [allCommands, helpContext]);
 
-  const handleAiSend = async () => {
-    if (!aiInput.trim() || aiLoading) return;
-    const query = aiInput.trim();
+  const sendAiQuery = async (query) => {
+    if (!query || aiLoading) return;
     setAiInput('');
     setAiMessages(prev => [...prev, { role: 'user', content: query }]);
     setAiLoading(true);
@@ -719,7 +762,7 @@ const PaletteApp = () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ query }),
         });
-      }  else{
+      } else {
         res = await fetch('http://127.0.0.1:7432/ask?db=fish', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -727,7 +770,7 @@ const PaletteApp = () => {
         });
       }
       const data = await res.json();
-      console.log(data)
+      console.log(data);
       if (data.explanation) {
         setAiMessages(prev => [...prev, { role: 'assistant', content: data.explanation }]);
       }
@@ -741,6 +784,14 @@ const PaletteApp = () => {
     } finally {
       setAiLoading(false);
     }
+  };
+
+  const handleAiSend = async () => {
+    await sendAiQuery(aiInput.trim());
+  };
+
+  const handleAskToAI = async (text) => {
+    await sendAiQuery(text.trim());
   };
 
   return (
@@ -822,6 +873,7 @@ const PaletteApp = () => {
             onInsertLast={() => callQt('insertLastCommand', contextMenu.node?.item?.id)}
             onInsertAll={() => callQt('insertAllCommand', contextMenu.node?.item?.id)}
             onShowHelp={() => callQt('showHelpCommand', contextMenu.node?.item?.id)}
+            onAskToAI={handleAskToAI}
             helpContext={helpContext}
           />
           <PaletteList
@@ -844,7 +896,15 @@ const PaletteApp = () => {
           <div className="ai-chat-body">
             {aiMessages.map((msg, index) => (
               <div key={index} className={`ai-message-row ${msg.role}`}>
-                <div className={`ai-message-bubble ${msg.role}`}>
+                <div 
+                  className={`ai-message-bubble ${msg.role}`} 
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    handleBubbleContextMenu(e);
+                  }}
+                  onMouseUp={handleBubbleMouseUp}
+                  onClick={(e) => e.stopPropagation()}
+                >
                   {msg.content}
                 </div>
               </div>
@@ -857,6 +917,13 @@ const PaletteApp = () => {
             )}
           </div>
 
+          <ContextMenu
+            {...bubbleContextMenu}
+            onlyAsk={true}
+            onClose={handleCloseContextMenu}
+            onAskToAI={handleAskToAI}
+          />
+
           {aiResults.length > 0 && (
             <>
               <ContextMenu
@@ -866,6 +933,7 @@ const PaletteApp = () => {
                 onInsertLast={() => callQt('insertLastCommand', contextMenu.node?.item?.id)}
                 onInsertAll={() => callQt('insertAllCommand', contextMenu.node?.item?.id)}
                 onShowHelp={() => callQt('showHelpCommand', contextMenu.node?.item?.id)}
+                onAskToAI={handleAskToAI}
                 helpContext={helpContext}
               />
               <PaletteList
