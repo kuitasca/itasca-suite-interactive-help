@@ -111,7 +111,8 @@ const PaletteApp = () => {
     //   groups: Array.isArray(datacommand.groups) ? datacommand.groups : [],
     //   geometrySets: Array.isArray(datacommand.geometrySets) ? datacommand.geometrySets : [],
     //   title: datacommand.title || 'Commands List',
-    //   isFish: true
+    //   isFish: false,
+    //   lineOfText: 'block fix'
     // });
   }, []);
 
@@ -469,19 +470,18 @@ const PaletteApp = () => {
   }, [expandedRows, selectedIndex]);
 
   const resetTreeUIFunction = useCallback((data) => {
+    const lineOfText = data.lineOfText || '';
     setCurrentTokenFilter('');
-    setTokensFilter([]);
     clearSelection();
-    updateOverlayAndSearch('');
-    // we can optionally update help context here if the data includes it,
-    // or we could have a separate method for that
     setHelpContext({
       slots: Array.isArray(data.slots) ? data.slots : [],
       groups: Array.isArray(data.groups) ? data.groups : [],
       geometrySets: Array.isArray(data.geometrySets) ? data.geometrySets : [],
       title: data.title + ' List',
-      isFish: data.isFish || false
+      isFish: data.isFish || false,
+      lineOfText,
     });
+    updateOverlayAndSearch(lineOfText);
     let commands = [];
     if (data.isFish) {
       setTreeData(fishTreeData?.children);
@@ -580,7 +580,7 @@ const PaletteApp = () => {
   //       }
   //     }
 
-  //   try {
+  //     try {
   //       const response = await fetch('fishtreedebug.txt');
   //       if (!response.ok) {
   //         console.error(`Failed to load fishtreedebug.txt: ${response.status} ${response.statusText}`);
