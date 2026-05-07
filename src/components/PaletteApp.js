@@ -106,13 +106,13 @@ const PaletteApp = () => {
     setFishTreeData(datafish);
 
     //for testing mode without Qt, we can directly set the tree data and help context here
-    setHelpContext({
-      slots: Array.isArray(datacommand.slots) ? datacommand.slots : [],
-      groups: Array.isArray(datacommand.groups) ? datacommand.groups : [],
-      geometrySets: Array.isArray(datacommand.geometrySets) ? datacommand.geometrySets : [],
-      title: datacommand.title || 'Commands List',
-      isFish: true
-    });
+    // setHelpContext({
+    //   slots: Array.isArray(datacommand.slots) ? datacommand.slots : [],
+    //   groups: Array.isArray(datacommand.groups) ? datacommand.groups : [],
+    //   geometrySets: Array.isArray(datacommand.geometrySets) ? datacommand.geometrySets : [],
+    //   title: datacommand.title || 'Commands List',
+    //   isFish: true
+    // });
   }, []);
 
   // Search index
@@ -269,14 +269,15 @@ const PaletteApp = () => {
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Home') {
+      //if (e.key === 'Home') {
+      if (e.ctrlKey && e.key === 'Home') {
         setCurrentTokenFilter('');
         setTokensFilter([]);
         handleSearchIndex('');
         e.preventDefault();
         return;
       }
-    
+
       if (e.key === 'Escape') {
         e.preventDefault();
         callQtCloseEvent('eventCloseFunction');
@@ -424,9 +425,9 @@ const PaletteApp = () => {
           // Take the last token (the actual command name, not the parent)
           const parts = display.split(/\s+/);
           let leafCommand = parts[parts.length - 1] || cmd.display;
-          if(cmd.display.includes('(2d only)') || cmd.display.includes('(3d only)')) {
+          if (cmd.display.includes('(2d only)') || cmd.display.includes('(3d only)')) {
             leafCommand += cmd.display.includes('(2d only)') ? ' (2d only)' : ' (3d only)';
-          }          
+          }
           return {
             ...cmd,
             display: leafCommand
@@ -466,51 +467,51 @@ const PaletteApp = () => {
       }
     }
   }, [expandedRows, selectedIndex]);
- 
+
   const resetTreeUIFunction = useCallback((data) => {
-      setCurrentTokenFilter('');
-      setTokensFilter([]);
-      clearSelection();
-      updateOverlayAndSearch('');
-      // we can optionally update help context here if the data includes it,
-      // or we could have a separate method for that
-      setHelpContext({
-        slots: Array.isArray(data.slots) ? data.slots : [],
-        groups: Array.isArray(data.groups) ? data.groups : [],
-        geometrySets: Array.isArray(data.geometrySets) ? data.geometrySets : [],
-        title: data.title + ' List',
-        isFish: data.isFish || false
-      });
-      let commands = [];
-      if (data.isFish) {
-        setTreeData(fishTreeData?.children);
-        if (fishTreeData?.children) {
-          for (const node of fishTreeData.children) {
-            const childCommands = buildIndex(node);
-            if (childCommands.length) {
-              commands.push(...childCommands);
-            }
+    setCurrentTokenFilter('');
+    setTokensFilter([]);
+    clearSelection();
+    updateOverlayAndSearch('');
+    // we can optionally update help context here if the data includes it,
+    // or we could have a separate method for that
+    setHelpContext({
+      slots: Array.isArray(data.slots) ? data.slots : [],
+      groups: Array.isArray(data.groups) ? data.groups : [],
+      geometrySets: Array.isArray(data.geometrySets) ? data.geometrySets : [],
+      title: data.title + ' List',
+      isFish: data.isFish || false
+    });
+    let commands = [];
+    if (data.isFish) {
+      setTreeData(fishTreeData?.children);
+      if (fishTreeData?.children) {
+        for (const node of fishTreeData.children) {
+          const childCommands = buildIndex(node);
+          if (childCommands.length) {
+            commands.push(...childCommands);
           }
-        } /*else {
+        }
+      } /*else {
           alert('Fish tree data is missing children');
         }  */
-      } else {
-        setTreeData(commandsTreeData?.children);
-        if (commandsTreeData?.children) {
-          for (const node of commandsTreeData.children) {
-            const childCommands = buildIndex(node);
-            if (childCommands.length) {
-              commands.push(...childCommands);
-            }
+    } else {
+      setTreeData(commandsTreeData?.children);
+      if (commandsTreeData?.children) {
+        for (const node of commandsTreeData.children) {
+          const childCommands = buildIndex(node);
+          if (childCommands.length) {
+            commands.push(...childCommands);
           }
-        } /*else {
+        }
+      } /*else {
           alert('Commands tree data is missing children');
         } */
-      }
+    }
 
-      setAllCommands(commands);
-      handleSearchIndex('');
-    }, [buildIndex, clearSelection, updateOverlayAndSearch, handleSearchIndex, fishTreeData, commandsTreeData]);
+    setAllCommands(commands);
+    handleSearchIndex('');
+  }, [buildIndex, clearSelection, updateOverlayAndSearch, handleSearchIndex, fishTreeData, commandsTreeData]);
 
   // Trigger tree UI reset when tree data is loaded from Qt (if not already loaded)
   useEffect(() => {
@@ -538,7 +539,7 @@ const PaletteApp = () => {
     };
 
     window.loadTree = (datacommand, datafish) => {
-      handleLoadTree(datacommand,datafish);
+      handleLoadTree(datacommand, datafish);
     };
 
   }, [clearSelection, handleLoadTree, updateOverlayAndSearch, resetTreeUIFunction]);
@@ -557,51 +558,51 @@ const PaletteApp = () => {
   }, []);
 
   // Load debug data on mount
-  useEffect(() => {
-    const loadFromFile = async () => {
-      let datac, dataf;
-      try {
-        const response = await fetch('commandtreedebug.txt');
-        if (!response.ok) {
-          console.error(`Failed to load commandtreedebug.txt: ${response.status} ${response.statusText}`);
-          alert(`Error loading file: ${response.status} ${response.statusText}\n\nMake sure commandtreedebug.txt exists in the public folder.`);
-          return;
-        }
-        const text = await response.text();
-        datac = JSON.parse(text);
-        
-      } catch (error) {
-        console.error('Error loading debug data:', error);
-        if (error instanceof SyntaxError) {
-          alert('JSON parse error: ' + error.message + '\n\nMake sure commandtreedebug.txt contains valid JSON.');
-        } else {
-          alert('Error loading file: ' + error.message);
-        }
-      }
-   
-    try {
-        const response = await fetch('fishtreedebug.txt');
-        if (!response.ok) {
-          console.error(`Failed to load fishtreedebug.txt: ${response.status} ${response.statusText}`);
-          alert(`Error loading file: ${response.status} ${response.statusText}\n\nMake sure fishtreedebug.txt exists in the public folder.`);
-          return;
-        }
-        const text = await response.text();
-        dataf = JSON.parse(text);
-        
-      } catch (error) {
-        console.error('Error loading debug data:', error);
-        if (error instanceof SyntaxError) {
-          alert('JSON parse error: ' + error.message + '\n\nMake sure fishtreedebug.txt contains valid JSON.');
-        } else {
-          alert('Error loading file: ' + error.message);
-        }
-      }
-      handleLoadTree(datac, dataf);
-    };
-    
-    loadFromFile();
-  }, [handleLoadTree, resetTreeUIFunction]);
+  // useEffect(() => {
+  //   const loadFromFile = async () => {
+  //     let datac, dataf;
+  //     try {
+  //       const response = await fetch('commandtreedebug.txt');
+  //       if (!response.ok) {
+  //         console.error(`Failed to load commandtreedebug.txt: ${response.status} ${response.statusText}`);
+  //         alert(`Error loading file: ${response.status} ${response.statusText}\n\nMake sure commandtreedebug.txt exists in the public folder.`);
+  //         return;
+  //       }
+  //       const text = await response.text();
+  //       datac = JSON.parse(text);
+
+  //     } catch (error) {
+  //       console.error('Error loading debug data:', error);
+  //       if (error instanceof SyntaxError) {
+  //         alert('JSON parse error: ' + error.message + '\n\nMake sure commandtreedebug.txt contains valid JSON.');
+  //       } else {
+  //         alert('Error loading file: ' + error.message);
+  //       }
+  //     }
+
+  //   try {
+  //       const response = await fetch('fishtreedebug.txt');
+  //       if (!response.ok) {
+  //         console.error(`Failed to load fishtreedebug.txt: ${response.status} ${response.statusText}`);
+  //         alert(`Error loading file: ${response.status} ${response.statusText}\n\nMake sure fishtreedebug.txt exists in the public folder.`);
+  //         return;
+  //       }
+  //       const text = await response.text();
+  //       dataf = JSON.parse(text);
+
+  //     } catch (error) {
+  //       console.error('Error loading debug data:', error);
+  //       if (error instanceof SyntaxError) {
+  //         alert('JSON parse error: ' + error.message + '\n\nMake sure fishtreedebug.txt contains valid JSON.');
+  //       } else {
+  //         alert('Error loading file: ' + error.message);
+  //       }
+  //     }
+  //     handleLoadTree(datac, dataf);
+  //   };
+
+  //   loadFromFile();
+  // }, [handleLoadTree, resetTreeUIFunction]);
 
   const handleRowClick = (row, index) => {
 
@@ -691,20 +692,20 @@ const PaletteApp = () => {
     // Map each AI result to a command object from allCommands
     // AI results have: {command, syntax, source, score}
     console.log('mapAiResults2 called with nodes:', nodes);
-    
+
     let results = nodes
       .map(node => {
         const commandName = node.command || node.syntax || '';
-        
+
         // Try to find match by command name in allCommands
-        let match = allCommands.find(cmd => 
+        let match = allCommands.find(cmd =>
           cmd.display.toLowerCase() === commandName.toLowerCase() ||
           cmd.searchKey.includes(commandName.toLowerCase()) ||
           cmd.item.title?.toLowerCase() === commandName.toLowerCase()
         );
-        
+
         if (match) return match;
-        
+
         // If no match, create a command object from the node
         return {
           label: commandName.split(' ')[0],
@@ -730,7 +731,7 @@ const PaletteApp = () => {
           let display = cmd.display.trim().replace(/\s*\([23]d\s+only\)\s*$/, '');
           const parts = display.split(/\s+/);
           let leafCommand = parts[parts.length - 1] || cmd.display;
-          if(cmd.display.includes('(2d only)') || cmd.display.includes('(3d only)')) {
+          if (cmd.display.includes('(2d only)') || cmd.display.includes('(3d only)')) {
             leafCommand += cmd.display.includes('(2d only)') ? ' (2d only)' : ' (3d only)';
           }
           return {
@@ -739,7 +740,7 @@ const PaletteApp = () => {
           };
         });
     }
-    
+
     console.log('mapAiResults2 returning:', results.length, 'items');
     return results;
 
@@ -756,7 +757,7 @@ const PaletteApp = () => {
     setAiExpandedRows({});
     try {
       let res = 0;
-      if(!helpContext.isFish){
+      if (!helpContext.isFish) {
         res = await fetch('http://127.0.0.1:7432/ask?db=commands', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -896,8 +897,8 @@ const PaletteApp = () => {
           <div className="ai-chat-body">
             {aiMessages.map((msg, index) => (
               <div key={index} className={`ai-message-row ${msg.role}`}>
-                <div 
-                  className={`ai-message-bubble ${msg.role}`} 
+                <div
+                  className={`ai-message-bubble ${msg.role}`}
                   onContextMenu={(e) => {
                     e.preventDefault();
                     handleBubbleContextMenu(e);
