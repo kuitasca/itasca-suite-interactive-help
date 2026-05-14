@@ -13,7 +13,8 @@ const ContextMenu = ({
   onUpOneLevel,
   onShowHelp,
   onAskToAI,
-  helpContext
+  helpContext,
+  usePathString,
 }) => {
 
   const menuRef = useRef(null);
@@ -87,7 +88,8 @@ const ContextMenu = ({
 
   const handleAskToAI = (e) => {
     e.stopPropagation();
-    const query = selectedText || node?.display || node?.label || '';
+    //console.log(node);
+    const query = selectedText || (usePathString ? node?.pathString : node?.label) || node?.display || '';
     if (!query) return;
     onAskToAI && onAskToAI(query);
     onClose && onClose();
@@ -105,7 +107,7 @@ const ContextMenu = ({
     >
       {onlyAsk ? (
         <div className="menu-item" onClick={handleAskToAI}>
-          Ask to AI
+          Ask AI
         </div>
       ) : (
         <>
@@ -127,7 +129,7 @@ const ContextMenu = ({
 
           <div className="separator" />
           <div className="menu-item" onClick={handleAskToAI}>
-            Ask to AI
+            Ask AI
           </div>
 
           <div className="separator" />

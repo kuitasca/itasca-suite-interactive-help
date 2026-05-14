@@ -5,13 +5,13 @@
   xmlns="http://www.w3.org/2000/svg"
   fill="none"
   stroke="currentColor"
-  stroke-width="2.2"
+  stroke-width="2.1"
   stroke-linecap="round"
   stroke-linejoin="round"
 >
-  <!-- Larger Question mark -->
-  <path d="M7.5 7.5a4.5 4.5 0 1 1 7.7 3.1c-1.5 1.5-3.2 2.5-3.2 5" />
+  <!-- Circular reset arrow -->
+  <path d="M19 11a8 8 0 1 0-2.3 5.7" />
 
-  <!-- Larger Dot -->
-  <circle cx="12" cy="19" r="1.2" fill="currentColor" stroke="none" />
+  <!-- Arrow head -->
+  <polyline points="20 4 20 11 13 11" />
 </svg>

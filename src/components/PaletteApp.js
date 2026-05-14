@@ -6,6 +6,8 @@ import TypeOverlay from './TypeOverlay';
 import { ReactComponent as FilterIcon } from './assets/icons/filter.svg';
 import { ReactComponent as HelpIcon } from './assets/icons/help.svg';
 import { ReactComponent as CloseIcon } from './assets/icons/close_off.svg';
+import { ReactComponent as ResetIcon } from './assets/icons/reset_tree.svg';
+
 
 const PaletteApp = () => {
   const [treeData, setTreeData] = useState(null);
@@ -819,14 +821,32 @@ const PaletteApp = () => {
               setFilterAIActive(true);
             }}
           >
-            AI Mode(beta)
+            AI Mode(Beta)
           </button>
         </div>
         {/* top‑right utility bar */}
         <div className="top-right-bar">
+          <a
+            href="#"
+            className="reset-button"
+            title="Reset Tree"
+            onClick={(e) => {
+              e.preventDefault();
+              setCurrentTokenFilter('');
+              setTokensFilter([]);
+              handleSearchIndex('');
+            }}
+          >
+          <ResetIcon className="icon" />
+          </a>
           <button
-            title="filter"
-            onClick={() => setFilterActive(prev => !prev)}
+            title="Filter Commands"
+            onClick={() => {
+              if (!filterActive) {
+                setFilterQuery('');
+              }
+              setFilterActive(prev => !prev);
+            }}
           >
             <FilterIcon className="icon" />
           </button>
@@ -841,19 +861,21 @@ const PaletteApp = () => {
                   handleSearchIndex(filterQuery);
                 }
               }}
-              placeholder="filter"
+              placeholder="Filter"
             />
           )}
           <a
             href="common/docproject/source/manual/program_guide/mechanics/datafiles/editor_pane/inline_help.html"
             target="_blank"
             rel="noopener noreferrer"
+            title="Help"
           >
-            <HelpIcon className="icon" />
+          <HelpIcon className="icon" />
           </a>
           <a
             href="#"
             className="close-button"
+            title="Close"
             onClick={(e) => {
               e.preventDefault();
               callQtCloseEvent('eventCloseFunction');
@@ -869,6 +891,7 @@ const PaletteApp = () => {
           <TypeOverlay query={[...tokensFilter, currentTokenFilter].join(' ')} />
           <ContextMenu
             {...contextMenu}
+            usePathString={filterActive}
             onClose={handleCloseContextMenu}
             onUpOneLevel={goUpOneLevel}
             onInsertLast={() => callQt('insertLastCommand', contextMenu.node?.item?.id)}
@@ -929,6 +952,7 @@ const PaletteApp = () => {
             <>
               <ContextMenu
                 {...contextMenu}
+                usePathString={filterAIActive}
                 onClose={handleCloseContextMenu}
                 onUpOneLevel={goUpOneLevel}
                 onInsertLast={() => callQt('insertLastCommand', contextMenu.node?.item?.id)}
