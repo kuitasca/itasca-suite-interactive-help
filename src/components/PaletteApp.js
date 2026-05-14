@@ -22,7 +22,7 @@ const PaletteApp = () => {
   const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, node: null });
   const [bubbleContextMenu, setBubbleContextMenu] = useState({ visible: false, x: 0, y: 0, selectedText: '' });
   const [selectedRow, setSelectedRow] = useState(null);
-  const [helpContext, setHelpContext] = useState({ slots: [], groups: [], geometrySets: [], title: 'Title' });
+  const [helpContext, setHelpContext] = useState({ slots: [], groups: [], geometrySets: [], ranges: [], title: 'Title' });
   const [expandedRows, setExpandedRows] = useState({});
 
   const [filterActive, setFilterActive] = useState(false);
@@ -479,6 +479,7 @@ const PaletteApp = () => {
       slots: Array.isArray(data.slots) ? data.slots : [],
       groups: Array.isArray(data.groups) ? data.groups : [],
       geometrySets: Array.isArray(data.geometrySets) ? data.geometrySets : [],
+      ranges: Array.isArray(data.ranges) ? data.ranges : [],
       title: data.title + ' List',
       isFish: data.isFish || false,
       lineOfText,
