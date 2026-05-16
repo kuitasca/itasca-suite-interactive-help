@@ -484,6 +484,12 @@ const PaletteApp = () => {
       isFish: data.isFish || false,
       lineOfText,
     });
+
+    if(lineOfText !== '') {
+      setActiveTab('palette');
+      setFilterAIActive(false);
+      setFilterActive(false);
+    } 
     updateOverlayAndSearch(lineOfText);
     let commands = [];
     if (data.isFish) {
@@ -795,6 +801,9 @@ const PaletteApp = () => {
   };
 
   const handleAskToAI = async (text) => {
+    setActiveTab('ai');
+    setFilterAIActive(true);
+    setFilterActive(false);
     await sendAiQuery(text.trim());
   };
 
