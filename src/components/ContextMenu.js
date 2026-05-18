@@ -5,12 +5,16 @@ const ContextMenu = ({
   x,
   y,
   node,
+  selectedText,
+  onlyAsk,
   onClose,
   onInsertAll,
   onInsertLast,
   onUpOneLevel,
   onShowHelp,
-  helpContext
+  onAskToAI,
+  helpContext,
+  usePathString,
 }) => {
 
   const menuRef = useRef(null);
@@ -82,6 +86,15 @@ const ContextMenu = ({
     onClose && onClose();
   };
 
+  const handleAskToAI = (e) => {
+    e.stopPropagation();
+    //console.log(node);
+    const query = selectedText || (usePathString ? node?.pathString : node?.label) || node?.display || '';
+    if (!query) return;
+    onAskToAI && onAskToAI(query);
+    onClose && onClose();
+  };
+
   return (
     <div
       ref={menuRef}
@@ -92,25 +105,39 @@ const ContextMenu = ({
         top: `${position.y}px`
       }}
     >
-      <div className="menu-item" onClick={handleUpOneLevel}>
-        Up one level
-      </div>
-
-      <div className="separator" />
-
-      {!helpContext?.isFish && (
-        <div className="menu-item" onClick={handleInsertAll}>
-          Insert all command
+      {onlyAsk ? (
+        <div className="menu-item" onClick={handleAskToAI}>
+          Ask AI
         </div>
-      )}
+      ) : (
+        <>
+          <div className="menu-item" onClick={handleUpOneLevel}>
+            Up one level
+          </div>
 
-      <div className="menu-item" onClick={handleInsertLast}>
-        Insert command
-      </div>
-      <div className="separator" />
-      <div className="menu-item" onClick={handleShowHelp}>
-        Selection Reference
-      </div>
+          <div className="separator" />
+
+          {!helpContext?.isFish && (
+            <div className="menu-item" onClick={handleInsertAll}>
+              Insert all command
+            </div>
+          )}
+
+          <div className="menu-item" onClick={handleInsertLast}>
+            Insert command
+          </div>
+
+          <div className="separator" />
+          <div className="menu-item" onClick={handleAskToAI}>
+            Ask AI
+          </div>
+
+          <div className="separator" />
+          <div className="menu-item" onClick={handleShowHelp}>
+            Selection Reference
+          </div>
+        </>
+      )}
     </div>
   );
 };

@@ -6,6 +6,8 @@ import TypeOverlay from './TypeOverlay';
 import { ReactComponent as FilterIcon } from './assets/icons/filter.svg';
 import { ReactComponent as HelpIcon } from './assets/icons/help.svg';
 import { ReactComponent as CloseIcon } from './assets/icons/close_off.svg';
+import { ReactComponent as ResetIcon } from './assets/icons/reset_tree.svg';
+
 
 const PaletteApp = () => {
   const [treeData, setTreeData] = useState(null);
@@ -18,8 +20,9 @@ const PaletteApp = () => {
   const [tokensFilter, setTokensFilter] = useState([]);
   const [mode, setMode] = useState('palette');
   const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, node: null });
+  const [bubbleContextMenu, setBubbleContextMenu] = useState({ visible: false, x: 0, y: 0, selectedText: '' });
   const [selectedRow, setSelectedRow] = useState(null);
-  const [helpContext, setHelpContext] = useState({ slots: [], groups: [], geometrySets: [], title: 'Title' });
+  const [helpContext, setHelpContext] = useState({ slots: [], groups: [], geometrySets: [], ranges: [], title: 'Title' });
   const [expandedRows, setExpandedRows] = useState({});
 
   const [filterActive, setFilterActive] = useState(false);
@@ -105,13 +108,14 @@ const PaletteApp = () => {
     setFishTreeData(datafish);
 
     //for testing mode without Qt, we can directly set the tree data and help context here
-    setHelpContext({
-      slots: Array.isArray(datacommand.slots) ? datacommand.slots : [],
-      groups: Array.isArray(datacommand.groups) ? datacommand.groups : [],
-      geometrySets: Array.isArray(datacommand.geometrySets) ? datacommand.geometrySets : [],
-      title: datacommand.title || 'Commands List',
-      isFish: true
-    });
+    // setHelpContext({
+    //   slots: Array.isArray(datacommand.slots) ? datacommand.slots : [],
+    //   groups: Array.isArray(datacommand.groups) ? datacommand.groups : [],
+    //   geometrySets: Array.isArray(datacommand.geometrySets) ? datacommand.geometrySets : [],
+    //   title: datacommand.title || 'Commands List',
+    //   isFish: false,
+    //   lineOfText: 'block fix'
+    // });
   }, []);
 
   // Search index
@@ -268,14 +272,15 @@ const PaletteApp = () => {
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.key === 'Home') {
+      //if (e.key === 'Home') {
+      if (e.ctrlKey && e.key === 'Home') {
         setCurrentTokenFilter('');
         setTokensFilter([]);
         handleSearchIndex('');
         e.preventDefault();
         return;
       }
-    
+
       if (e.key === 'Escape') {
         e.preventDefault();
         callQtCloseEvent('eventCloseFunction');
@@ -423,9 +428,9 @@ const PaletteApp = () => {
           // Take the last token (the actual command name, not the parent)
           const parts = display.split(/\s+/);
           let leafCommand = parts[parts.length - 1] || cmd.display;
-          if(cmd.display.includes('(2d only)') || cmd.display.includes('(3d only)')) {
+          if (cmd.display.includes('(2d only)') || cmd.display.includes('(3d only)')) {
             leafCommand += cmd.display.includes('(2d only)') ? ' (2d only)' : ' (3d only)';
-          }          
+          }
           return {
             ...cmd,
             display: leafCommand
@@ -465,51 +470,57 @@ const PaletteApp = () => {
       }
     }
   }, [expandedRows, selectedIndex]);
- 
+
   const resetTreeUIFunction = useCallback((data) => {
-      setCurrentTokenFilter('');
-      setTokensFilter([]);
-      clearSelection();
-      updateOverlayAndSearch('');
-      // we can optionally update help context here if the data includes it,
-      // or we could have a separate method for that
-      setHelpContext({
-        slots: Array.isArray(data.slots) ? data.slots : [],
-        groups: Array.isArray(data.groups) ? data.groups : [],
-        geometrySets: Array.isArray(data.geometrySets) ? data.geometrySets : [],
-        title: data.title + ' List',
-        isFish: data.isFish || false
-      });
-      let commands = [];
-      if (data.isFish) {
-        setTreeData(fishTreeData?.children);
-        if (fishTreeData?.children) {
-          for (const node of fishTreeData.children) {
-            const childCommands = buildIndex(node);
-            if (childCommands.length) {
-              commands.push(...childCommands);
-            }
+    const lineOfText = data.lineOfText || '';
+    setCurrentTokenFilter('');
+    clearSelection();
+    setHelpContext({
+      slots: Array.isArray(data.slots) ? data.slots : [],
+      groups: Array.isArray(data.groups) ? data.groups : [],
+      geometrySets: Array.isArray(data.geometrySets) ? data.geometrySets : [],
+      ranges: Array.isArray(data.ranges) ? data.ranges : [],
+      title: data.title + ' List',
+      isFish: data.isFish || false,
+      lineOfText,
+    });
+
+    if(lineOfText !== '') {
+      setActiveTab('palette');
+      setFilterAIActive(false);
+      setFilterActive(false);
+    } 
+    updateOverlayAndSearch(lineOfText);
+    let commands = [];
+    if (data.isFish) {
+      setTreeData(fishTreeData?.children);
+      if (fishTreeData?.children) {
+        for (const node of fishTreeData.children) {
+          const childCommands = buildIndex(node);
+          if (childCommands.length) {
+            commands.push(...childCommands);
           }
-        } /*else {
+        }
+      } /*else {
           alert('Fish tree data is missing children');
         }  */
-      } else {
-        setTreeData(commandsTreeData?.children);
-        if (commandsTreeData?.children) {
-          for (const node of commandsTreeData.children) {
-            const childCommands = buildIndex(node);
-            if (childCommands.length) {
-              commands.push(...childCommands);
-            }
+    } else {
+      setTreeData(commandsTreeData?.children);
+      if (commandsTreeData?.children) {
+        for (const node of commandsTreeData.children) {
+          const childCommands = buildIndex(node);
+          if (childCommands.length) {
+            commands.push(...childCommands);
           }
-        } /*else {
+        }
+      } /*else {
           alert('Commands tree data is missing children');
         } */
-      }
+    }
 
-      setAllCommands(commands);
-      handleSearchIndex('');
-    }, [buildIndex, clearSelection, updateOverlayAndSearch, handleSearchIndex, fishTreeData, commandsTreeData]);
+    setAllCommands(commands);
+    handleSearchIndex('');
+  }, [buildIndex, clearSelection, updateOverlayAndSearch, handleSearchIndex, fishTreeData, commandsTreeData]);
 
   // Trigger tree UI reset when tree data is loaded from Qt (if not already loaded)
   useEffect(() => {
@@ -537,66 +548,70 @@ const PaletteApp = () => {
     };
 
     window.loadTree = (datacommand, datafish) => {
-      handleLoadTree(datacommand,datafish);
+      handleLoadTree(datacommand, datafish);
     };
 
   }, [clearSelection, handleLoadTree, updateOverlayAndSearch, resetTreeUIFunction]);
 
-  // close context menu when window loses focus
+  // Prevent browser context menu on AI bubbles
   useEffect(() => {
-    const handleBlur = () => {
-      handleCloseContextMenu();
+    const handleContextMenu = (e) => {
+      if (e.target.closest('.ai-message-bubble')) {
+        e.preventDefault();
+        return false;
+      }
     };
-    window.addEventListener('blur', handleBlur);
-    return () => window.removeEventListener('blur', handleBlur);
+
+    document.addEventListener('contextmenu', handleContextMenu, true);
+    return () => document.removeEventListener('contextmenu', handleContextMenu, true);
   }, []);
 
   // Load debug data on mount
-  useEffect(() => {
-    const loadFromFile = async () => {
-      let datac, dataf;
-      try {
-        const response = await fetch('commandtreedebug.txt');
-        if (!response.ok) {
-          console.error(`Failed to load commandtreedebug.txt: ${response.status} ${response.statusText}`);
-          alert(`Error loading file: ${response.status} ${response.statusText}\n\nMake sure commandtreedebug.txt exists in the public folder.`);
-          return;
-        }
-        const text = await response.text();
-        datac = JSON.parse(text);
-        
-      } catch (error) {
-        console.error('Error loading debug data:', error);
-        if (error instanceof SyntaxError) {
-          alert('JSON parse error: ' + error.message + '\n\nMake sure commandtreedebug.txt contains valid JSON.');
-        } else {
-          alert('Error loading file: ' + error.message);
-        }
-      }
-   
-    try {
-        const response = await fetch('fishtreedebug.txt');
-        if (!response.ok) {
-          console.error(`Failed to load fishtreedebug.txt: ${response.status} ${response.statusText}`);
-          alert(`Error loading file: ${response.status} ${response.statusText}\n\nMake sure fishtreedebug.txt exists in the public folder.`);
-          return;
-        }
-        const text = await response.text();
-        dataf = JSON.parse(text);
-        
-      } catch (error) {
-        console.error('Error loading debug data:', error);
-        if (error instanceof SyntaxError) {
-          alert('JSON parse error: ' + error.message + '\n\nMake sure fishtreedebug.txt contains valid JSON.');
-        } else {
-          alert('Error loading file: ' + error.message);
-        }
-      }
-      handleLoadTree(datac, dataf);
-    };
-    
-    loadFromFile();
-  }, [handleLoadTree, resetTreeUIFunction]);
+  // useEffect(() => {
+  //   const loadFromFile = async () => {
+  //     let datac, dataf;
+  //     try {
+  //       const response = await fetch('commandtreedebug.txt');
+  //       if (!response.ok) {
+  //         console.error(`Failed to load commandtreedebug.txt: ${response.status} ${response.statusText}`);
+  //         alert(`Error loading file: ${response.status} ${response.statusText}\n\nMake sure commandtreedebug.txt exists in the public folder.`);
+  //         return;
+  //       }
+  //       const text = await response.text();
+  //       datac = JSON.parse(text);
+
+  //     } catch (error) {
+  //       console.error('Error loading debug data:', error);
+  //       if (error instanceof SyntaxError) {
+  //         alert('JSON parse error: ' + error.message + '\n\nMake sure commandtreedebug.txt contains valid JSON.');
+  //       } else {
+  //         alert('Error loading file: ' + error.message);
+  //       }
+  //     }
+
+  //     try {
+  //       const response = await fetch('fishtreedebug.txt');
+  //       if (!response.ok) {
+  //         console.error(`Failed to load fishtreedebug.txt: ${response.status} ${response.statusText}`);
+  //         alert(`Error loading file: ${response.status} ${response.statusText}\n\nMake sure fishtreedebug.txt exists in the public folder.`);
+  //         return;
+  //       }
+  //       const text = await response.text();
+  //       dataf = JSON.parse(text);
+
+  //     } catch (error) {
+  //       console.error('Error loading debug data:', error);
+  //       if (error instanceof SyntaxError) {
+  //         alert('JSON parse error: ' + error.message + '\n\nMake sure fishtreedebug.txt contains valid JSON.');
+  //       } else {
+  //         alert('Error loading file: ' + error.message);
+  //       }
+  //     }
+  //     handleLoadTree(datac, dataf);
+  //   };
+
+  //   loadFromFile();
+  // }, [handleLoadTree, resetTreeUIFunction]);
 
   const handleRowClick = (row, index) => {
 
@@ -624,10 +639,49 @@ const PaletteApp = () => {
     setSelectedIndex(index);
     setSelectedRow(row);
     setContextMenu({ visible: true, x, y, node: row });
+    setBubbleContextMenu({ visible: false, x: 0, y: 0, selectedText: '' });
+  };
+
+  const handleBubbleContextMenu = (e) => {
+    const selectedText = window.getSelection()?.toString().trim() || '';
+    if (!selectedText) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu(prev => ({ ...prev, visible: false }));
+    setBubbleContextMenu({
+      visible: true,
+      x: e.clientX,
+      y: e.clientY,
+      selectedText
+    });
+  };
+
+  const handleBubbleMouseUp = (e) => {
+    if (e.button !== 0) return;
+
+    const selectedText = window.getSelection()?.toString().trim() || '';
+    if (!selectedText) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu(prev => ({ ...prev, visible: false }));
+
+    const selection = window.getSelection();
+    const range = selection.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+
+    setBubbleContextMenu({
+      visible: true,
+      x: rect.left,
+      y: rect.bottom + 5,
+      selectedText
+    });
   };
 
   const handleCloseContextMenu = () => {
     setContextMenu(prev => ({ ...prev, visible: false }));
+    setBubbleContextMenu(prev => ({ ...prev, visible: false, selectedText: '' }));
   };
 
   const mapAiResults = useCallback((nodes) => {
@@ -647,20 +701,20 @@ const PaletteApp = () => {
     // Map each AI result to a command object from allCommands
     // AI results have: {command, syntax, source, score}
     console.log('mapAiResults2 called with nodes:', nodes);
-    
+
     let results = nodes
       .map(node => {
         const commandName = node.command || node.syntax || '';
-        
+
         // Try to find match by command name in allCommands
-        let match = allCommands.find(cmd => 
+        let match = allCommands.find(cmd =>
           cmd.display.toLowerCase() === commandName.toLowerCase() ||
           cmd.searchKey.includes(commandName.toLowerCase()) ||
           cmd.item.title?.toLowerCase() === commandName.toLowerCase()
         );
-        
+
         if (match) return match;
-        
+
         // If no match, create a command object from the node
         return {
           label: commandName.split(' ')[0],
@@ -686,7 +740,7 @@ const PaletteApp = () => {
           let display = cmd.display.trim().replace(/\s*\([23]d\s+only\)\s*$/, '');
           const parts = display.split(/\s+/);
           let leafCommand = parts[parts.length - 1] || cmd.display;
-          if(cmd.display.includes('(2d only)') || cmd.display.includes('(3d only)')) {
+          if (cmd.display.includes('(2d only)') || cmd.display.includes('(3d only)')) {
             leafCommand += cmd.display.includes('(2d only)') ? ' (2d only)' : ' (3d only)';
           }
           return {
@@ -695,15 +749,14 @@ const PaletteApp = () => {
           };
         });
     }
-    
+
     console.log('mapAiResults2 returning:', results.length, 'items');
     return results;
 
   }, [allCommands, helpContext]);
 
-  const handleAiSend = async () => {
-    if (!aiInput.trim() || aiLoading) return;
-    const query = aiInput.trim();
+  const sendAiQuery = async (query) => {
+    if (!query || aiLoading) return;
     setAiInput('');
     setAiMessages(prev => [...prev, { role: 'user', content: query }]);
     setAiLoading(true);
@@ -713,13 +766,13 @@ const PaletteApp = () => {
     setAiExpandedRows({});
     try {
       let res = 0;
-      if(!helpContext.isFish){
+      if (!helpContext.isFish) {
         res = await fetch('http://127.0.0.1:7432/ask?db=commands', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ query }),
         });
-      }  else{
+      } else {
         res = await fetch('http://127.0.0.1:7432/ask?db=fish', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -727,7 +780,7 @@ const PaletteApp = () => {
         });
       }
       const data = await res.json();
-      console.log(data)
+      console.log(data);
       if (data.explanation) {
         setAiMessages(prev => [...prev, { role: 'assistant', content: data.explanation }]);
       }
@@ -741,6 +794,17 @@ const PaletteApp = () => {
     } finally {
       setAiLoading(false);
     }
+  };
+
+  const handleAiSend = async () => {
+    await sendAiQuery(aiInput.trim());
+  };
+
+  const handleAskToAI = async (text) => {
+    setActiveTab('ai');
+    setFilterAIActive(true);
+    setFilterActive(false);
+    await sendAiQuery(text.trim());
   };
 
   return (
@@ -767,14 +831,32 @@ const PaletteApp = () => {
               setFilterAIActive(true);
             }}
           >
-            AI Mode(beta)
+            AI Mode(Beta)
           </button>
         </div>
         {/* top‑right utility bar */}
         <div className="top-right-bar">
+          <a
+            href="#"
+            className="reset-button"
+            title="Reset Tree"
+            onClick={(e) => {
+              e.preventDefault();
+              setCurrentTokenFilter('');
+              setTokensFilter([]);
+              handleSearchIndex('');
+            }}
+          >
+          <ResetIcon className="icon" />
+          </a>
           <button
-            title="filter"
-            onClick={() => setFilterActive(prev => !prev)}
+            title="Filter Commands"
+            onClick={() => {
+              if (!filterActive) {
+                setFilterQuery('');
+              }
+              setFilterActive(prev => !prev);
+            }}
           >
             <FilterIcon className="icon" />
           </button>
@@ -789,19 +871,21 @@ const PaletteApp = () => {
                   handleSearchIndex(filterQuery);
                 }
               }}
-              placeholder="filter"
+              placeholder="Filter"
             />
           )}
           <a
             href="common/docproject/source/manual/program_guide/mechanics/datafiles/editor_pane/inline_help.html"
             target="_blank"
             rel="noopener noreferrer"
+            title="Help"
           >
-            <HelpIcon className="icon" />
+          <HelpIcon className="icon" />
           </a>
           <a
             href="#"
             className="close-button"
+            title="Close"
             onClick={(e) => {
               e.preventDefault();
               callQtCloseEvent('eventCloseFunction');
@@ -817,11 +901,13 @@ const PaletteApp = () => {
           <TypeOverlay query={[...tokensFilter, currentTokenFilter].join(' ')} />
           <ContextMenu
             {...contextMenu}
+            usePathString={filterActive}
             onClose={handleCloseContextMenu}
             onUpOneLevel={goUpOneLevel}
             onInsertLast={() => callQt('insertLastCommand', contextMenu.node?.item?.id)}
             onInsertAll={() => callQt('insertAllCommand', contextMenu.node?.item?.id)}
             onShowHelp={() => callQt('showHelpCommand', contextMenu.node?.item?.id)}
+            onAskToAI={handleAskToAI}
             helpContext={helpContext}
           />
           <PaletteList
@@ -844,7 +930,15 @@ const PaletteApp = () => {
           <div className="ai-chat-body">
             {aiMessages.map((msg, index) => (
               <div key={index} className={`ai-message-row ${msg.role}`}>
-                <div className={`ai-message-bubble ${msg.role}`}>
+                <div
+                  className={`ai-message-bubble ${msg.role}`}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    handleBubbleContextMenu(e);
+                  }}
+                  onMouseUp={handleBubbleMouseUp}
+                  onClick={(e) => e.stopPropagation()}
+                >
                   {msg.content}
                 </div>
               </div>
@@ -857,15 +951,24 @@ const PaletteApp = () => {
             )}
           </div>
 
+          <ContextMenu
+            {...bubbleContextMenu}
+            onlyAsk={true}
+            onClose={handleCloseContextMenu}
+            onAskToAI={handleAskToAI}
+          />
+
           {aiResults.length > 0 && (
             <>
               <ContextMenu
                 {...contextMenu}
+                usePathString={filterAIActive}
                 onClose={handleCloseContextMenu}
                 onUpOneLevel={goUpOneLevel}
                 onInsertLast={() => callQt('insertLastCommand', contextMenu.node?.item?.id)}
                 onInsertAll={() => callQt('insertAllCommand', contextMenu.node?.item?.id)}
                 onShowHelp={() => callQt('showHelpCommand', contextMenu.node?.item?.id)}
+                onAskToAI={handleAskToAI}
                 helpContext={helpContext}
               />
               <PaletteList

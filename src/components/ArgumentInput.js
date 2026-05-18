@@ -8,6 +8,15 @@ const ArgumentInput = ({ argIndex, arg, itemId, helpContext, onChange }) => {
     const fieldKey = `${itemId}_${argIndex}_${arg.name}_${inputIndex}`;
 
     switch (arg.type) {
+      case 'namedRange':
+        return (
+          <select key={fieldKey} id={fieldKey} name={fieldKey}>
+            <option value="">Select a range</option>
+            {helpContext.ranges.map(g => (
+              <option key={g} value={g}>{g}</option>
+            ))}
+          </select>
+        );
       case 'group':
         return (
           <select key={fieldKey} id={fieldKey} name={fieldKey}>
