@@ -251,6 +251,92 @@ const PaletteApp = () => {
     }
   }, []);
 
+  const resolveDocLink = (href) => {
+    const trimmed = (href || '').trim();
+    if (!trimmed) return trimmed;
+    return trimmed;
+  };
+
+  const handleAiLinkClick = (e, href) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const selectedId = selectedRow?.item?.id || contextMenu?.node?.item?.id;
+    if (selectedId) {
+      callQt('showHelpCommand', selectedId);
+      return;
+    }
+
+    const resolved = resolveDocLink(href);
+    if (resolved) {
+      window.open(resolved, '_blank', 'noopener');
+    }
+  };
+
+  const renderTextWithLinks = (text) => {
+    const nodes = [];
+    const urlPattern = /\b(?:https?:\/\/|file:\/\/\/|www\.|[A-Za-z0-9_.-]+\/[A-Za-z0-9_.\-\/%]+)\b/g;
+    let lastIndex = 0;
+    let match;
+
+    while ((match = urlPattern.exec(text)) !== null) {
+      const url = match[0];
+      const index = match.index;
+      if (index > lastIndex) {
+        nodes.push(text.slice(lastIndex, index));
+      }
+      nodes.push(
+        <a
+          key={`plain-link-${index}-${lastIndex}`}
+          href={resolveDocLink(url)}
+          onClick={(event) => handleAiLinkClick(event, url)}
+        >
+          {url}
+        </a>
+      );
+      lastIndex = index + url.length;
+    }
+
+    if (lastIndex < text.length) {
+      nodes.push(text.slice(lastIndex));
+    }
+
+    return nodes;
+  };
+
+  const renderAiMessageContent = (content) => {
+    if (!content) return null;
+
+    const nodes = [];
+    const markdownLinkPattern = /\[([^\]]+)\]\(([^)]+)\)/g;
+    let lastIndex = 0;
+    let match;
+
+    while ((match = markdownLinkPattern.exec(content)) !== null) {
+      const [fullMatch, label, href] = match;
+      const index = match.index;
+      if (index > lastIndex) {
+        nodes.push(...renderTextWithLinks(content.slice(lastIndex, index)));
+      }
+      nodes.push(
+        <a
+          key={`md-link-${index}`}
+          href={resolveDocLink(href)}
+          onClick={(event) => handleAiLinkClick(event, href)}
+        >
+          {label}
+        </a>
+      );
+      lastIndex = index + fullMatch.length;
+    }
+
+    if (lastIndex < content.length) {
+      nodes.push(...renderTextWithLinks(content.slice(lastIndex)));
+    }
+
+    return nodes;
+  };
+
   const updateOverlayAndSearch = useCallback((commandText) => {
     setTokensFilter(commandText.split(' ').filter(Boolean));
     setCurrentTokenFilter('');
@@ -939,7 +1025,7 @@ const PaletteApp = () => {
                   onMouseUp={handleBubbleMouseUp}
                   onClick={(e) => e.stopPropagation()}
                 >
-                  {msg.content}
+                  {renderAiMessageContent(msg.content)}
                 </div>
               </div>
             ))}
