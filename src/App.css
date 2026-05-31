@@ -660,3 +660,18 @@ li>ul {
   "Gill Sans MT Cyrillic Pro Bold";
   line-height: 1.5;
 }
+
+.row-menu-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 2px 6px;
+  color: var(--text-secondary);
+  float: right;
+}
+
+.row-menu-button:hover {
+  color: var(--text-primary);
+}
