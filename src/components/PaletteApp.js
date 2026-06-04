@@ -984,7 +984,7 @@ const PaletteApp = () => {
 
       {activeTab === 'palette' ? (
         <>
-          <TypeOverlay query={[...tokensFilter, currentTokenFilter].join(' ')} />
+      <TypeOverlay query={[...tokensFilter, currentTokenFilter].join(' ')} hidden={filterActive} />    
           <ContextMenu
             {...contextMenu}
             usePathString={filterActive}
