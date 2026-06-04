@@ -670,7 +670,7 @@ li>ul {
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 16px;
+  font-size: 20px;
   line-height: 1;
   padding: 2px 6px;
   color: var(--text-secondary);
@@ -679,4 +679,31 @@ li>ul {
 
 .row-menu-button:hover {
   color: var(--text-primary);
+}
+
+.param-badge {
+  display: inline-block;
+  font-size: 10px;
+  line-height: 1;
+  padding: 1px 5px;
+  margin-left: 6px;
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  border-radius: 8px;
+  vertical-align: middle;
+  pointer-events: none;
+  user-select: none;
+}
+
+.palette-row.selected .param-badge {
+  background: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.palette-row.show-value .row-menu-button {
+  color: var(--accent-blue);
+}
+
+.palette-row.show-value .row-menu-button:hover {
+  color: #0055aa;
 }

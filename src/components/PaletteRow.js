@@ -10,8 +10,11 @@ const PaletteRow = ({
   onClick,
   onToggle,
   onContextMenu,
+  onInsertAll,
   helpContext
 }) => {
+  const hasArgs = Array.isArray(row.args) && row.args.length > 0;
+
   const handleClick = (e) => {
     // ignore clicks that originate inside the value editor
     if (e.target.closest('.value')) return;
@@ -19,12 +22,17 @@ const PaletteRow = ({
     onToggle && onToggle();
   };
 
-  const handleMenuButtonClick = (e) => {
-    // prevent the row click/toggle from firing
+  const handleInsertButtonClick = (e) => {
     e.stopPropagation();
-    // forward the original mouse event to the context menu handler
-    onContextMenu && onContextMenu(e);
+    if (hasArgs && !isExpanded) {
+      onClick();
+      onToggle && onToggle();
+    } else {
+      onInsertAll && onInsertAll(row);
+    }
   };
+
+  const buttonTitle = hasArgs && !isExpanded ? 'Show parameters' : 'Insert command';
 
   return (
     <li
@@ -33,15 +41,18 @@ const PaletteRow = ({
       onClick={handleClick}
       onContextMenu={onContextMenu}
     >
-      <span className="label">{row.display}</span>
-    <button
+      <button
         className="row-menu-button"
-        title="Open menu"
-        onClick={handleMenuButtonClick}
+        title={buttonTitle}
+        onClick={handleInsertButtonClick}
         onContextMenu={(e) => { e.stopPropagation(); onContextMenu && onContextMenu(e); }}
       >
-        ⋮
+        &#x27A2;
       </button>
+      <span className="label">{row.display}</span>
+      {hasArgs && (
+        <span className="param-badge" aria-hidden="true">{row.args.length}</span>
+      )}
       {isExpanded && row.item && (
         <ValueEditor
           item={row.item}

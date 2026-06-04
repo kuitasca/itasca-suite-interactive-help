@@ -444,7 +444,12 @@ const PaletteApp = () => {
         if (selectedIndex >= 0) {
           const row = visibleRows[selectedIndex];
           if (row) {
-            callQt('insertAllCommand', row.item?.id);
+            const hasArgs = Array.isArray(row.args) && row.args.length > 0;
+            if (hasArgs && !expandedRows[selectedIndex]) {
+              setExpandedRows(prev => ({ ...prev, [selectedIndex]: true }));
+            } else {
+              callQt('insertAllCommand', row.item?.id);
+            }
           }
         }
         e.preventDefault();
@@ -1008,6 +1013,7 @@ const PaletteApp = () => {
             }}
             onContextMenu={handleContextMenu}
             onRowClick={handleRowClick}
+            onInsertAll={(row) => callQt('insertAllCommand', row.item?.id)}
             helpContext={helpContext}
           />
         </>
