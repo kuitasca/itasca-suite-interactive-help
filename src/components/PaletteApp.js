@@ -133,6 +133,7 @@ const PaletteApp = () => {
           // root items: single-token label and full display
           label: getLabel(node),
           display: getDisplay(node),
+          args: Array.isArray(node.inputs) ? node.inputs : [],
           item: node
         }));
       }
@@ -173,6 +174,7 @@ const PaletteApp = () => {
           results.push({
             label: fullPath,
             display: getDisplay(node),
+            args: Array.isArray(node.inputs) ? node.inputs : [],
             item: node
           });
 
@@ -182,6 +184,7 @@ const PaletteApp = () => {
               results.push({
                 label: [...path, name, childName].join(' '),
                 display: getDisplay(child),
+                args: Array.isArray(child.inputs) ? child.inputs : [],
                 item: child
               });
             }
@@ -198,6 +201,7 @@ const PaletteApp = () => {
           results.push({
             label: fullLabelPath,
             display: fullDisplayPath,
+            args: Array.isArray(node.inputs) ? node.inputs : [],
             item: node
           });
 
@@ -210,6 +214,7 @@ const PaletteApp = () => {
               results.push({
                 label: fullLabelChildPath,
                 display: fullDisplayChildPath,
+                args: Array.isArray(child.inputs) ? child.inputs : [],
                 item: child
               });
             }

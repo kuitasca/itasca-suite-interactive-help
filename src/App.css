@@ -666,6 +666,13 @@ li>ul {
   line-height: 1.5;
 }
 
+.row-right {
+  float: right;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .row-menu-button {
   background: none;
   border: none;
@@ -674,7 +681,6 @@ li>ul {
   line-height: 1;
   padding: 2px 6px;
   color: var(--text-secondary);
-  float: right;
 }
 
 .row-menu-button:hover {

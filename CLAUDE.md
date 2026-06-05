@@ -36,7 +36,7 @@ When running outside Qt (e.g., in a browser dev server), the bridge is absent an
 
 ```
 PaletteApp          ← all state lives here (12 useState hooks)
-  TypeOverlay       ← shows current search query string
+  TypeOverlay       ← sticky bar below tabs; shows current query or "Start typing…" hint
   ContextMenu       ← right-click menu; flips direction if near viewport edge
   PaletteList       ← forwarded-ref scroll container
     PaletteRow      ← one command row; click to expand or navigate
@@ -44,6 +44,17 @@ PaletteApp          ← all state lives here (12 useState hooks)
         ArgumentInput   ← switches on arg.type: select | number | vector | checkbox | text
           VectorInput   ← x/y/z number fields for vector args
 ```
+
+### PaletteRow anatomy
+
+Each row renders (right to left visually):
+- `.row-right` (float right, flex) — contains `.param-badge` + `.row-menu-button`
+  - `.param-badge` — shows arg count with tooltip "Args required"; hidden when no args
+  - `.row-menu-button` (➢) — insert button; first press on a param command expands inputs, second press sends; turns blue when expanded
+- `.label` — command display name
+- `ValueEditor` — shown only when row is expanded (`isExpanded`)
+
+`row.args` is populated from `node.inputs` in both `buildIndex()` (flat/filter view) and `handleSearchIndex()` (tree/palette view).
 
 ### Keyboard handling (all in `PaletteApp`)
 
@@ -54,9 +65,11 @@ PaletteApp          ← all state lives here (12 useState hooks)
 | Space | Commit current token (palette mode) |
 | Tab | Autocomplete from selected row |
 | Arrow Right | Expand to full path |
-| Enter | Insert command via Qt |
+| Enter | Expand inputs if row has args and is collapsed; otherwise insert via Qt |
 | Escape | Close palette |
 
 ### Styling
 
 `src/App.css` uses CSS custom properties (`--bg-primary`, `--accent-blue`, etc.) for the light theme. Font stack is JetBrains Mono → Courier New. No CSS framework or preprocessor.
+
+Key UI classes: `.param-badge` (arg count pill), `.row-right` (right-side flex wrapper), `.palette-row.show-value .row-menu-button` (blue accent when inputs are open), `#typeOverlay` (sticky query display below tabs).

@@ -41,18 +41,20 @@ const PaletteRow = ({
       onClick={handleClick}
       onContextMenu={onContextMenu}
     >
-      <button
-        className="row-menu-button"
-        title={buttonTitle}
-        onClick={handleInsertButtonClick}
-        onContextMenu={(e) => { e.stopPropagation(); onContextMenu && onContextMenu(e); }}
-      >
-        &#x27A2;
-      </button>
+      <div className="row-right">
+        {hasArgs && (
+          <span className="param-badge" title="Args required">{row.args.length}</span>
+        )}
+        <button
+          className="row-menu-button"
+          title={buttonTitle}
+          onClick={handleInsertButtonClick}
+          onContextMenu={(e) => { e.stopPropagation(); onContextMenu && onContextMenu(e); }}
+        >
+          &#x27A2;
+        </button>
+      </div>
       <span className="label">{row.display}</span>
-      {hasArgs && (
-        <span className="param-badge" aria-hidden="true">{row.args.length}</span>
-      )}
       {isExpanded && row.item && (
         <ValueEditor
           item={row.item}
