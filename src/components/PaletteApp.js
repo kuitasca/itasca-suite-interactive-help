@@ -53,11 +53,14 @@ const PaletteApp = () => {
   }, [filterQuery]);
 
   // Parse command tree and build index
-  const buildIndex = useCallback((node, path = []) => {
+  const buildIndex = useCallback((node, path = [], parentArgs = []) => {
     if (!node?.title) return [];
 
-    // new JSON structure passes argument descriptions directly
-    const args = Array.isArray(node.inputs) ? node.inputs : [];
+    const ownArgs = Array.isArray(node.inputs) ? node.inputs : [];
+    // Merge: parent args first, then own args; skip parent args whose name already exists in ownArgs
+    const ownNames = new Set(ownArgs.map(a => a.name));
+    const args = [...parentArgs.filter(a => !ownNames.has(a.name)), ...ownArgs];
+
     // `label` is the search token (first word of title), `display` is full shown title
     const commandLabel = (node.title || node.display).split(' ')[0];
     const display = node.display || node.title;
@@ -91,7 +94,7 @@ const PaletteApp = () => {
     if (node.children) {
       for (const child of node.children) {
         // use push to avoid creating new arrays each iteration
-        const childCommands = buildIndex(child, nextPath);
+        const childCommands = buildIndex(child, nextPath, args);
         if (childCommands.length) {
           commands.push(...childCommands);
         }
@@ -126,6 +129,12 @@ const PaletteApp = () => {
 
     const getLabel = (n) => ((n.title || n.display) + '').split(' ')[0];
     const getDisplay = (n) => n.display || n.title || '';
+    const getArgs = (n) => Array.isArray(n.inputs) ? n.inputs : [];
+    // Merge parent args into own args, skipping duplicates by name
+    const mergeArgs = (parent, own) => {
+      const ownNames = new Set(own.map(a => a.name));
+      return [...parent.filter(a => !ownNames.has(a.name)), ...own];
+    };
 
     if (tokens.length === 0) {
       if (treeData) {
@@ -133,7 +142,7 @@ const PaletteApp = () => {
           // root items: single-token label and full display
           label: getLabel(node),
           display: getDisplay(node),
-          args: Array.isArray(node.inputs) ? node.inputs : [],
+          args: getArgs(node),
           item: node
         }));
       }
@@ -141,6 +150,7 @@ const PaletteApp = () => {
       let currentNodes = treeData || [];
       let path = [];
       let displayPath = [];
+      let parentArgs = [];
 
       for (let i = 0; i < tokens.length - 1; i++) {
         const token = tokens[i];
@@ -155,8 +165,9 @@ const PaletteApp = () => {
 
         // keep path entries as the node's label (search tokens)
         path.push(getLabel(found));
-        // keep displayPath entries as the node's full display for nicer UI 
+        // keep displayPath entries as the node's full display for nicer UI
         displayPath.push(getDisplay(found));
+        parentArgs = mergeArgs(parentArgs, getArgs(found));
         currentNodes = found.children || [];
       }
 
@@ -170,11 +181,12 @@ const PaletteApp = () => {
         for (const node of levelMatches) {
           const name = getLabel(node);
           const fullPath = [...path, name].join(' ');
+          const nodeArgs = mergeArgs(parentArgs, getArgs(node));
 
           results.push({
             label: fullPath,
             display: getDisplay(node),
-            args: Array.isArray(node.inputs) ? node.inputs : [],
+            args: nodeArgs,
             item: node
           });
 
@@ -184,7 +196,7 @@ const PaletteApp = () => {
               results.push({
                 label: [...path, name, childName].join(' '),
                 display: getDisplay(child),
-                args: Array.isArray(child.inputs) ? child.inputs : [],
+                args: mergeArgs(nodeArgs, getArgs(child)),
                 item: child
               });
             }
@@ -197,11 +209,12 @@ const PaletteApp = () => {
           const displayName = getDisplay(node);
           const fullLabelPath = [...path, name].join(' ');
           const fullDisplayPath = [...displayPath, displayName].join(' ');
+          const nodeArgs = mergeArgs(parentArgs, getArgs(node));
 
           results.push({
             label: fullLabelPath,
             display: fullDisplayPath,
-            args: Array.isArray(node.inputs) ? node.inputs : [],
+            args: nodeArgs,
             item: node
           });
 
@@ -214,7 +227,7 @@ const PaletteApp = () => {
               results.push({
                 label: fullLabelChildPath,
                 display: fullDisplayChildPath,
-                args: Array.isArray(child.inputs) ? child.inputs : [],
+                args: mergeArgs(nodeArgs, getArgs(child)),
                 item: child
               });
             }
@@ -259,11 +272,17 @@ const PaletteApp = () => {
     const commandNames = rangeIdx === -1 ? labelTokens : labelTokens.slice(0, rangeIdx);
     const labelRangeTokens = rangeIdx === -1 ? [] : labelTokens.slice(rangeIdx);
 
-    const argDefs = Array.isArray(item.inputs) ? item.inputs : [];
+    // Use row.args (includes inherited parent args) for DOM lookup —
+    // indices must match what ValueEditor rendered.
+    const argDefs = Array.isArray(row.args) ? row.args : [];
     const display = row.display || '';
 
-    // Sort by position of arg.name in the display string so tokens come out
-    // in the same order as the command syntax (e.g. vector before namedRange).
+    // Find where 'range' keyword appears in the display string so we can put
+    // args that fall after it (e.g. fl, fu) after the range label tokens.
+    const rangeDisplayMatch = display.match(/\brange\b/);
+    const rangeDisplayPos = rangeDisplayMatch ? rangeDisplayMatch.index : Infinity;
+
+    // Sort by position of arg.name in display so order matches command syntax.
     const sorted = argDefs
       .map((arg, originalIndex) => {
         const pos = display.indexOf(arg.name);
@@ -271,7 +290,9 @@ const PaletteApp = () => {
       })
       .sort((a, b) => a.pos - b.pos);
 
-    const argTokens = [];
+    const preRangeTokens = [];
+    const postRangeTokens = [];
+
     sorted.forEach(({ arg, originalIndex: argIndex }) => {
       let value = '';
       if (arg.type === 'vector') {
@@ -284,10 +305,16 @@ const PaletteApp = () => {
         if (el) value = el.type === 'checkbox' ? (el.checked ? 'true' : 'false') : (el.value ?? '');
       }
       if (!value) return;
-      argTokens.push(arg.type === 'namedRange' ? `range ${value}` : value);
+      const token = arg.type === 'namedRange' ? `range ${value}` : value;
+      const argPos = display.indexOf(arg.name);
+      if (argPos !== -1 && argPos > rangeDisplayPos) {
+        postRangeTokens.push(token);
+      } else {
+        preRangeTokens.push(token);
+      }
     });
 
-    const command = [...commandNames, ...argTokens, ...labelRangeTokens].join(' ');
+    const command = [...commandNames, ...preRangeTokens, ...labelRangeTokens, ...postRangeTokens].join(' ');
     console.log(`${action} (callQt2): ${command}`);
     const bridge = qtBridgeRef.current;
     if (bridge && typeof bridge[action] === 'function') {

@@ -58,6 +58,7 @@ const PaletteRow = ({
       {isExpanded && row.item && (
         <ValueEditor
           item={row.item}
+          args={row.args}
           helpContext={helpContext}
         />
       )}

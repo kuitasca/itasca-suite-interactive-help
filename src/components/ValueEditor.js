@@ -1,9 +1,9 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import ArgumentInput from './ArgumentInput';
 
-const ValueEditor = ({ item, helpContext }) => {
+const ValueEditor = ({ item, args: argsProp, helpContext }) => {
 
-  const args = Array.isArray(item.inputs) ? item.inputs : [];
+  const args = argsProp !== undefined ? argsProp : (Array.isArray(item.inputs) ? item.inputs : []);
 
   // ✅ Hooks must always run
   const [inputValues, setInputValues] = useState({});
