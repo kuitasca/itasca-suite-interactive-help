@@ -246,6 +246,57 @@ const PaletteApp = () => {
       console.warn('Qt action not available:', action);
     }
   }, []);
+
+  const callQt2 = useCallback((action, row) => {
+    console.log(row)
+    const item = row?.item;
+    if (!item) return;
+    
+    // Split label at 'range' keyword: base command tokens before it,
+    // range-path tokens (range + qualifiers) go after all arg values.
+    const labelTokens = (row.label || '').split(/\s+/).filter(Boolean);
+    const rangeIdx = labelTokens.indexOf('range');
+    const commandNames = rangeIdx === -1 ? labelTokens : labelTokens.slice(0, rangeIdx);
+    const labelRangeTokens = rangeIdx === -1 ? [] : labelTokens.slice(rangeIdx);
+
+    const argDefs = Array.isArray(item.inputs) ? item.inputs : [];
+    const display = row.display || '';
+
+    // Sort by position of arg.name in the display string so tokens come out
+    // in the same order as the command syntax (e.g. vector before namedRange).
+    const sorted = argDefs
+      .map((arg, originalIndex) => {
+        const pos = display.indexOf(arg.name);
+        return { arg, originalIndex, pos: pos === -1 ? Infinity : pos };
+      })
+      .sort((a, b) => a.pos - b.pos);
+
+    const argTokens = [];
+    sorted.forEach(({ arg, originalIndex: argIndex }) => {
+      let value = '';
+      if (arg.type === 'vector') {
+        const x = document.getElementById(`${item.id}_${argIndex}_${arg.name}_x`)?.value ?? '';
+        const y = document.getElementById(`${item.id}_${argIndex}_${arg.name}_y`)?.value ?? '';
+        const z = document.getElementById(`${item.id}_${argIndex}_${arg.name}_z`)?.value ?? '';
+        value = [x, y, z].filter(Boolean).join(',');
+      } else {
+        const el = document.getElementById(`${item.id}_${argIndex}_${arg.name}_0`);
+        if (el) value = el.type === 'checkbox' ? (el.checked ? 'true' : 'false') : (el.value ?? '');
+      }
+      if (!value) return;
+      argTokens.push(arg.type === 'namedRange' ? `range ${value}` : value);
+    });
+
+    const command = [...commandNames, ...argTokens, ...labelRangeTokens].join(' ');
+    console.log(`${action} (callQt2): ${command}`);
+    const bridge = qtBridgeRef.current;
+    if (bridge && typeof bridge[action] === 'function') {
+      bridge[action](command);
+    } else {
+      console.warn('Qt action not available:', action);
+    }
+  }, []);
+  
   const callQtCloseEvent = useCallback((action, ...args) => {
     const bridge = qtBridgeRef.current;
 
@@ -453,7 +504,7 @@ const PaletteApp = () => {
             if (hasArgs && !expandedRows[selectedIndex]) {
               setExpandedRows(prev => ({ ...prev, [selectedIndex]: true }));
             } else {
-              callQt('insertAllCommand', row.item?.id);
+              callQt2('insertAllCommand', row);
             }
           }
         }
@@ -1001,7 +1052,7 @@ const PaletteApp = () => {
             onClose={handleCloseContextMenu}
             onUpOneLevel={goUpOneLevel}
             onInsertLast={() => callQt('insertLastCommand', contextMenu.node?.item?.id)}
-            onInsertAll={() => callQt('insertAllCommand', contextMenu.node?.item?.id)}
+            onInsertAll={() => callQt2('insertAllCommand', contextMenu.node)}
             onShowHelp={() => callQt('showHelpCommand', contextMenu.node?.item?.id)}
             onAskToAI={handleAskToAI}
             helpContext={helpContext}
@@ -1018,7 +1069,7 @@ const PaletteApp = () => {
             }}
             onContextMenu={handleContextMenu}
             onRowClick={handleRowClick}
-            onInsertAll={(row) => callQt('insertAllCommand', row.item?.id)}
+            onInsertAll={(row) => callQt2('insertAllCommand', row)}
             helpContext={helpContext}
           />
         </>
@@ -1063,7 +1114,7 @@ const PaletteApp = () => {
                 onClose={handleCloseContextMenu}
                 onUpOneLevel={goUpOneLevel}
                 onInsertLast={() => callQt('insertLastCommand', contextMenu.node?.item?.id)}
-                onInsertAll={() => callQt('insertAllCommand', contextMenu.node?.item?.id)}
+                onInsertAll={() => callQt2('insertAllCommand', contextMenu.node)}
                 onShowHelp={() => callQt('showHelpCommand', contextMenu.node?.item?.id)}
                 onAskToAI={handleAskToAI}
                 helpContext={helpContext}
