@@ -153,6 +153,8 @@ const PaletteApp = () => {
     // });
   }, []);
 
+  const lastSearchQueryRef = useRef(undefined);
+
   // Search index
   const handleSearchIndex = useCallback((query) => {
     const tokens = query.trim() ? query.toLowerCase().split(/\s+/) : [];
@@ -269,9 +271,12 @@ const PaletteApp = () => {
     }
 
     setVisibleRows(results);
-    const newIndex = results.length > 0 ? 0 : -1;
-    setSelectedIndex(newIndex);
-    setSelectedRow(newIndex >= 0 ? results[0] : null);
+    if (query !== lastSearchQueryRef.current) {
+      lastSearchQueryRef.current = query;
+      const newIndex = results.length > 0 ? 0 : -1;
+      setSelectedIndex(newIndex);
+      setSelectedRow(newIndex >= 0 ? results[0] : null);
+    }
   }, [treeData, helpContext]);
 
   // Helpers
@@ -595,6 +600,11 @@ const PaletteApp = () => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentTokenFilter, tokensFilter, selectedIndex, visibleRows, mode, handleSearchIndex]);
+
+  // Reset query tracker when tree data changes so new tree always selects row 0
+  useEffect(() => {
+    lastSearchQueryRef.current = undefined;
+  }, [treeData]);
 
   // Update search index when query changes
   useEffect(() => {
