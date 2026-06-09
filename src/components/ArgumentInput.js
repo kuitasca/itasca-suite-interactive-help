@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import VectorInput from './VectorInput';
 
-const ArgumentInput = ({ argIndex, arg, itemId, helpContext, onChange }) => {
+const ArgumentInput = ({ argIndex, arg, itemId, helpContext, onChange, defaultValue }) => {
   const [inputs, setInputs] = useState([0]); // Track number of repeated inputs
 
   const createInput = (inputIndex = 0) => {
@@ -10,7 +10,7 @@ const ArgumentInput = ({ argIndex, arg, itemId, helpContext, onChange }) => {
     switch (arg.type) {
       case 'namedRange':
         return (
-          <select key={fieldKey} id={fieldKey} name={fieldKey}>
+          <select key={fieldKey} id={fieldKey} name={fieldKey} defaultValue={defaultValue ?? ''}>
             <option value="">Select a range</option>
             {helpContext.ranges.map(g => (
               <option key={g} value={g}>{g}</option>
@@ -19,7 +19,7 @@ const ArgumentInput = ({ argIndex, arg, itemId, helpContext, onChange }) => {
         );
       case 'group':
         return (
-          <select key={fieldKey} id={fieldKey} name={fieldKey}>
+          <select key={fieldKey} id={fieldKey} name={fieldKey} defaultValue={defaultValue ?? ''}>
             <option value="">Select a group</option>
             {helpContext.groups.map(g => (
               <option key={g} value={g}>{g}</option>
@@ -30,7 +30,7 @@ const ArgumentInput = ({ argIndex, arg, itemId, helpContext, onChange }) => {
       case 'slot':
       case 'by-slot':
         return (
-          <select key={fieldKey} id={fieldKey} name={fieldKey}>
+          <select key={fieldKey} id={fieldKey} name={fieldKey} defaultValue={defaultValue ?? ''}>
             <option value="">Select a slot</option>
             {helpContext.slots.map(s => (
               <option key={s} value={s}>{s}</option>
@@ -40,7 +40,7 @@ const ArgumentInput = ({ argIndex, arg, itemId, helpContext, onChange }) => {
 
       case 'geometrySets':
         return (
-          <select key={fieldKey} id={fieldKey} name={fieldKey}>
+          <select key={fieldKey} id={fieldKey} name={fieldKey} defaultValue={defaultValue ?? ''}>
             <option value="">Select a geometry set</option>
             {helpContext.geometrySets.map(gs => (
               <option key={gs} value={gs}>{gs}</option>
@@ -56,6 +56,7 @@ const ArgumentInput = ({ argIndex, arg, itemId, helpContext, onChange }) => {
             name={fieldKey}
             type="number"
             step="1"
+            defaultValue={defaultValue ?? ''}
             onChange={(e) => onChange(e.target.value)}
           />
         );
@@ -68,6 +69,7 @@ const ArgumentInput = ({ argIndex, arg, itemId, helpContext, onChange }) => {
             name={fieldKey}
             type="number"
             step="any"
+            defaultValue={defaultValue ?? ''}
             onChange={(e) => onChange(e.target.value)}
           />
         );
@@ -80,6 +82,7 @@ const ArgumentInput = ({ argIndex, arg, itemId, helpContext, onChange }) => {
             argIndex={argIndex}
             argName={arg.name}
             onChange={onChange}
+            defaultValue={defaultValue}
           />
         );
 
@@ -90,6 +93,7 @@ const ArgumentInput = ({ argIndex, arg, itemId, helpContext, onChange }) => {
             id={fieldKey}
             name={fieldKey}
             type="checkbox"
+            defaultChecked={defaultValue === 'true' || defaultValue === '1'}
             onChange={(e) => onChange(e.target.checked ? '1' : '0')}
           />
         );
@@ -101,6 +105,7 @@ const ArgumentInput = ({ argIndex, arg, itemId, helpContext, onChange }) => {
             id={fieldKey}
             name={fieldKey}
             type="text"
+            defaultValue={defaultValue ?? ''}
             onChange={(e) => onChange(e.target.value)}
           />
         );

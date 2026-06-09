@@ -9,6 +9,35 @@ import { ReactComponent as CloseIcon } from './assets/icons/close_off.svg';
 import { ReactComponent as ResetIcon } from './assets/icons/reset_tree.svg';
 
 
+// Walk the tree to separate command-path keyword tokens from embedded arg values.
+// Tokens that match a child node label are command keywords; everything else is an arg value.
+// Returns { commandTokens, preRangeArgValues, postRangeArgValues }.
+function parseLineOfText(lineOfText, rootNodes) {
+  const tokens = lineOfText.trim().split(/\s+/).filter(Boolean);
+  let currentNodes = rootNodes || [];
+  const commandTokens = [];
+  const preRangeArgValues = [];
+  const postRangeArgValues = [];
+  let seenRange = false;
+
+  for (const token of tokens) {
+    const tokenLower = token.toLowerCase();
+    const matched = currentNodes.find(n => {
+      const label = ((n.title || n.display) + '').split(' ')[0].toLowerCase();
+      return label === tokenLower;
+    });
+    if (matched) {
+      commandTokens.push(token);
+      if (tokenLower === 'range') seenRange = true;
+      currentNodes = matched.children || [];
+    } else {
+      (seenRange ? postRangeArgValues : preRangeArgValues).push(token);
+    }
+  }
+
+  return { commandTokens, preRangeArgValues, postRangeArgValues };
+}
+
 const PaletteApp = () => {
   const [treeData, setTreeData] = useState(null);
   const [commandsTreeData, setCommandsTreeData] = useState(null);
@@ -38,6 +67,9 @@ const PaletteApp = () => {
   const [aiErrorMessage, setAiErrorMessage] = useState('');
   const [aiResults, setAiResults] = useState([]);
   const [aiExpandedRows, setAiExpandedRows] = useState({});
+
+  // extractedArgValues: arg value tokens parsed from lineOfText { preRange: string[], postRange: string[] }
+  const [extractedArgValues, setExtractedArgValues] = useState(null);
 
   const paletteListRef = useRef(null);
   const qtBridgeRef = useRef(null); // holds the Qt bridge object when running inside QWebEngine
@@ -247,6 +279,7 @@ const PaletteApp = () => {
     setSelectedRow(null);
     setSelectedIndex(-1);
     setExpandedRows({});
+    setExtractedArgValues(null);
   }, []);
 
   const callQt = useCallback((action, itemId) => {
@@ -663,8 +696,20 @@ const PaletteApp = () => {
       setActiveTab('palette');
       setFilterAIActive(false);
       setFilterActive(false);
-    } 
-    updateOverlayAndSearch(lineOfText);
+    }
+
+    // Separate command-path keywords from embedded arg values in lineOfText.
+    // e.g. "zone copy 21,21,21 false range active" → commandTokens: ["zone","copy","range","active"],
+    //      preRangeArgValues: ["21,21,21","false"], postRangeArgValues: []
+    const rootNodes = data.isFish ? fishTreeData?.children : commandsTreeData?.children;
+    const { commandTokens, preRangeArgValues, postRangeArgValues } = parseLineOfText(lineOfText, rootNodes);
+    const hasArgValues = preRangeArgValues.length > 0 || postRangeArgValues.length > 0;
+    if (hasArgValues) {
+      setExtractedArgValues({ preRange: preRangeArgValues, postRange: postRangeArgValues });
+    }
+
+    // Navigate using only the command-path tokens (arg values stripped out).
+    updateOverlayAndSearch(commandTokens.join(' '));
     let commands = [];
     if (data.isFish) {
       setTreeData(fishTreeData?.children);
@@ -1098,6 +1143,7 @@ const PaletteApp = () => {
             onRowClick={handleRowClick}
             onInsertAll={(row) => callQt2('insertAllCommand', row)}
             helpContext={helpContext}
+            extractedArgValues={extractedArgValues}
           />
         </>
       ) : (

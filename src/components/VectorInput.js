@@ -1,7 +1,8 @@
 import React from 'react';
 
-const VectorInput = ({ itemId, argIndex, argName, onChange }) => {
+const VectorInput = ({ itemId, argIndex, argName, onChange, defaultValue }) => {
   const axes = ['x', 'y', 'z'];
+  const defaults = defaultValue ? defaultValue.split(',').map(v => v.trim()) : [];
 
   const handleChange = () => {
     const values = axes
@@ -16,7 +17,7 @@ const VectorInput = ({ itemId, argIndex, argName, onChange }) => {
 
   return (
     <div className="vector">
-      {axes.map(axis => {
+      {axes.map((axis, i) => {
         const fieldKey = `${itemId}_${argIndex}_${argName}_${axis}`;
         return (
           <div key={fieldKey}>
@@ -27,6 +28,7 @@ const VectorInput = ({ itemId, argIndex, argName, onChange }) => {
               step="any"
               placeholder={axis}
               className="vector-input"
+              defaultValue={defaults[i] ?? ''}
               onChange={handleChange}
             />
           </div>

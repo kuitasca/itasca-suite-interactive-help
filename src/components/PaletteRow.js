@@ -11,7 +11,8 @@ const PaletteRow = ({
   onToggle,
   onContextMenu,
   onInsertAll,
-  helpContext
+  helpContext,
+  extractedArgValues
 }) => {
   const hasArgs = Array.isArray(row.args) && row.args.length > 0;
 
@@ -59,7 +60,9 @@ const PaletteRow = ({
         <ValueEditor
           item={row.item}
           args={row.args}
+          display={row.display}
           helpContext={helpContext}
+          extractedArgValues={extractedArgValues}
         />
       )}
     </li>
