@@ -280,11 +280,11 @@ const PaletteApp = () => {
   }, [treeData, helpContext]);
 
   // Helpers
-  const clearSelection = useCallback(() => {
+  const clearSelection = useCallback((preserveArgValues = false) => {
     setSelectedRow(null);
     setSelectedIndex(-1);
     setExpandedRows({});
-    setExtractedArgValues(null);
+    if (!preserveArgValues) setExtractedArgValues(null);
   }, []);
 
   const callQt = useCallback((action, itemId) => {
@@ -472,7 +472,7 @@ const PaletteApp = () => {
 
     parts.pop(); // remove last token
 
-    clearSelection();
+    clearSelection(true);
     updateOverlayAndSearch(parts.join(' '));
   }, [tokensFilter, currentTokenFilter, clearSelection, updateOverlayAndSearch]);
 
