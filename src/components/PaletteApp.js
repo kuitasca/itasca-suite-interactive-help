@@ -303,9 +303,11 @@ const PaletteApp = () => {
     const item = row?.item;
     if (!item) return;
     
+    // pathString is set on filter-mode rows; palette-mode rows carry the full path in label.
+    const fullCommand = row.pathString || row.label || '';
     // Split label at 'range' keyword: base command tokens before it,
     // range-path tokens (range + qualifiers) go after all arg values.
-    const labelTokens = (row.label || '').split(/\s+/).filter(Boolean);
+    const labelTokens = fullCommand.split(/\s+/).filter(Boolean);
     const rangeIdx = labelTokens.indexOf('range');
     const commandNames = rangeIdx === -1 ? labelTokens : labelTokens.slice(0, rangeIdx);
     const labelRangeTokens = rangeIdx === -1 ? [] : labelTokens.slice(rangeIdx);
