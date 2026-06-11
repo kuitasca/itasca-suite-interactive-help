@@ -119,14 +119,14 @@ const ContextMenu = ({
 
           {!helpContext?.isFish && (
             <div className="menu-item" onClick={handleInsertAll}>
-              Insert all command
+              Insert command
             </div>
           )}
-
+          {/* 
           <div className="menu-item" onClick={handleInsertLast}>
             Insert command
           </div>
-
+          */}    
           <div className="separator" />
           <div className="menu-item" onClick={handleAskToAI}>
             Ask AI
