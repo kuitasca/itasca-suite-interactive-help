@@ -89,9 +89,10 @@ const PaletteApp = () => {
     if (!node?.title) return [];
 
     const ownArgs = Array.isArray(node.inputs) ? node.inputs : [];
-    // Merge: parent args first, then own args; skip parent args whose name already exists in ownArgs
-    const ownNames = new Set(ownArgs.map(a => a.name));
-    const args = [...parentArgs.filter(a => !ownNames.has(a.name)), ...ownArgs];
+    // Dedup accumulated parent args by name (last = deepest ancestor wins),
+    // then append all own args unconditionally so same-named args at different levels are both kept.
+    const parentDeduped = [...new Map(parentArgs.map(a => [a.name, a])).values()];
+    const args = [...parentDeduped, ...ownArgs];
 
     // `label` is the search token (first word of title), `display` is full shown title
     const commandLabel = (node.title || node.display).split(' ')[0];
@@ -164,10 +165,9 @@ const PaletteApp = () => {
     const getLabel = (n) => ((n.title || n.display) + '').split(' ')[0];
     const getDisplay = (n) => n.display || n.title || '';
     const getArgs = (n) => Array.isArray(n.inputs) ? n.inputs : [];
-    // Merge parent args into own args, skipping duplicates by name
     const mergeArgs = (parent, own) => {
-      const ownNames = new Set(own.map(a => a.name));
-      return [...parent.filter(a => !ownNames.has(a.name)), ...own];
+      const parentDeduped = [...new Map(parent.map(a => [a.name, a])).values()];
+      return [...parentDeduped, ...own];
     };
 
     if (tokens.length === 0) {
@@ -708,6 +708,7 @@ const PaletteApp = () => {
       setActiveTab('palette');
       setFilterAIActive(false);
       setFilterActive(false);
+      setFilterQuery('');
     }
 
     // Separate command-path keywords from embedded arg values in lineOfText.
@@ -1070,12 +1071,13 @@ const PaletteApp = () => {
           <a
             href="#"
             className="reset-button"
-            title="Reset Tree"
+            title="Reset search"
             onClick={(e) => {
               e.preventDefault();
               setCurrentTokenFilter('');
               setTokensFilter([]);
               handleSearchIndex('');
+              setFilterQuery('');
             }}
           >
           <ResetIcon className="icon" />
