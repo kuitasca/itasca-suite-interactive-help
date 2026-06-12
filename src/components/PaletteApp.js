@@ -89,10 +89,14 @@ const PaletteApp = () => {
     if (!node?.title) return [];
 
     const ownArgs = Array.isArray(node.inputs) ? node.inputs : [];
-    // Dedup accumulated parent args by name (last = deepest ancestor wins),
-    // then append all own args unconditionally so same-named args at different levels are both kept.
     const parentDeduped = [...new Map(parentArgs.map(a => [a.name, a])).values()];
-    const args = [...parentDeduped, ...ownArgs];
+    const argsEq = (a, b) => a.name === b.name && a.type === b.type;
+    const n = parentDeduped.length, m = ownArgs.length;
+    // If ownArgs is a structural copy of the last m parentDeduped args, it's a redundant
+    // re-declaration at this leaf level (e.g. range active repeating zone copy's v,b).
+    // Drop it. Otherwise append so genuinely different same-named args (e.g. annulus center v) both appear.
+    const ownRedundant = m > 0 && m <= n && parentDeduped.slice(n - m).every((p, i) => argsEq(p, ownArgs[i]));
+    const args = ownRedundant ? parentDeduped : [...parentDeduped, ...ownArgs];
 
     // `label` is the search token (first word of title), `display` is full shown title
     const commandLabel = (node.title || node.display).split(' ')[0];
@@ -165,9 +169,12 @@ const PaletteApp = () => {
     const getLabel = (n) => ((n.title || n.display) + '').split(' ')[0];
     const getDisplay = (n) => n.display || n.title || '';
     const getArgs = (n) => Array.isArray(n.inputs) ? n.inputs : [];
+    const argsEq = (a, b) => a.name === b.name && a.type === b.type;
     const mergeArgs = (parent, own) => {
       const parentDeduped = [...new Map(parent.map(a => [a.name, a])).values()];
-      return [...parentDeduped, ...own];
+      const n = parentDeduped.length, m = own.length;
+      const ownRedundant = m > 0 && m <= n && parentDeduped.slice(n - m).every((p, i) => argsEq(p, own[i]));
+      return ownRedundant ? parentDeduped : [...parentDeduped, ...own];
     };
 
     if (tokens.length === 0) {
