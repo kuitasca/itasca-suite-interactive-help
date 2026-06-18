@@ -71,6 +71,38 @@ const PaletteApp = () => {
   // extractedArgValues: arg value tokens parsed from lineOfText { preRange: string[], postRange: string[] }
   const [extractedArgValues, setExtractedArgValues] = useState(null);
 
+  // Draggable separator between ai-chat-body and palette-list
+  const [aiChatHeight, setAiChatHeight] = useState(null); // null = use flex default
+  const aiSeparatorDragging = useRef(false);
+  const aiPanelRef = useRef(null);
+
+  const handleAiSeparatorMouseDown = useCallback((e) => {
+    e.preventDefault();
+    aiSeparatorDragging.current = true;
+    document.body.style.cursor = 'row-resize';
+    document.body.style.userSelect = 'none';
+
+    const onMouseMove = (moveE) => {
+      if (!aiSeparatorDragging.current || !aiPanelRef.current) return;
+      const panelRect = aiPanelRef.current.getBoundingClientRect();
+      const newHeight = moveE.clientY - panelRect.top;
+      const minH = 60;
+      const maxH = panelRect.height - 100; // leave room for list + input
+      setAiChatHeight(Math.max(minH, Math.min(maxH, newHeight)));
+    };
+
+    const onMouseUp = () => {
+      aiSeparatorDragging.current = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }, []);
+
   const paletteListRef = useRef(null);
   const qtBridgeRef = useRef(null); // holds the Qt bridge object when running inside QWebEngine
 
@@ -1168,8 +1200,8 @@ const PaletteApp = () => {
           />
         </>
       ) : (
-        <div className="ai-mode-panel">
-          <div className="ai-chat-body">
+        <div className="ai-mode-panel" ref={aiPanelRef}>
+          <div className="ai-chat-body" style={aiChatHeight != null ? { flex: 'none', height: aiChatHeight } : undefined}>
             {aiMessages.map((msg, index) => (
               <div key={index} className={`ai-message-row ${msg.role}`}>
                 <div
@@ -1192,6 +1224,12 @@ const PaletteApp = () => {
               </div>
             )}
           </div>
+
+          {aiResults.length > 0 && (
+            <div className="ai-separator" onMouseDown={handleAiSeparatorMouseDown}>
+              <div className="ai-separator-handle" />
+            </div>
+          )}
 
           <ContextMenu
             {...bubbleContextMenu}

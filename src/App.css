@@ -541,6 +541,37 @@ li>ul {
   gap: 8px;
 }
 
+/* Draggable separator between chat and palette list */
+.ai-separator {
+  flex-shrink: 0;
+  height: 6px;
+  cursor: row-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-primary);
+  border-top: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.ai-separator:hover,
+.ai-separator:active {
+  background: var(--bg-hover);
+}
+
+.ai-separator-handle {
+  width: 32px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--text-secondary);
+  opacity: 0.5;
+}
+
+.ai-separator:hover .ai-separator-handle,
+.ai-separator:active .ai-separator-handle {
+  opacity: 1;
+}
+
 .ai-empty-state {
   color: var(--text-secondary);
   font-size: 12px;
@@ -703,7 +734,8 @@ li>ul {
 
 .palette-row.selected .param-badge {
   background: rgba(255, 255, 255, 0.15);
-  color: rgba(255, 255, 255, 0.75);
+  color: rgba(0, 0, 0, 0.75);
+  font-weight: 600;
 }
 
 .palette-row.show-value .row-menu-button {
