@@ -728,7 +728,7 @@ li>ul {
   color: var(--text-secondary);
   border-radius: 8px;
   vertical-align: middle;
-  pointer-events: none;
+  pointer-events: auto;
   user-select: none;
 }
 
