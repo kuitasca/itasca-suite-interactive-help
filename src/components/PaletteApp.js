@@ -1269,6 +1269,7 @@ const PaletteApp = () => {
                   setSelectedRow(row);
                   setAiExpandedRows(prev => ({ ...prev, [index]: !prev[index] }));
                 }}
+                onInsertAll={(row) => callQt2('insertAllCommand', row)}
                 helpContext={helpContext}
               />
             </>
