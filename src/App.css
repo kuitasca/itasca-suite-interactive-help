@@ -340,18 +340,23 @@ input:focus {
 }
 
 #typeOverlay {
-  position: fixed;
-  right: 12px;
-  bottom: 12px;
-  padding: 3px 8px;
-  background: rgba(30, 30, 30, 0.85);
-  color: #ffffff;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  margin: 4px 8px;
+  padding: 3px 10px;
+  background: var(--bg-secondary, #f0f0f0);
+  color: var(--text-secondary);
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
-  border-radius: 4px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
   pointer-events: none;
-  display: none;
-  opacity: 0.8;
+  flex-shrink: 0;
+}
+
+#typeOverlay.has-query {
+  color: var(--text-primary);
 }
 
 ul {
@@ -536,6 +541,37 @@ li>ul {
   gap: 8px;
 }
 
+/* Draggable separator between chat and palette list */
+.ai-separator {
+  flex-shrink: 0;
+  height: 6px;
+  cursor: row-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-primary);
+  border-top: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.ai-separator:hover,
+.ai-separator:active {
+  background: var(--bg-hover);
+}
+
+.ai-separator-handle {
+  width: 32px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--text-secondary);
+  opacity: 0.5;
+}
+
+.ai-separator:hover .ai-separator-handle,
+.ai-separator:active .ai-separator-handle {
+  opacity: 1;
+}
+
 .ai-empty-state {
   color: var(--text-secondary);
   font-size: 12px;
@@ -659,4 +695,53 @@ li>ul {
   "Gill Sans MT",
   "Gill Sans MT Cyrillic Pro Bold";
   line-height: 1.5;
+}
+
+.row-right {
+  float: right;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.row-menu-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+  padding: 2px 6px;
+  color: var(--text-secondary);
+}
+
+.row-menu-button:hover {
+  color: var(--text-primary);
+}
+
+.param-badge {
+  display: inline-block;
+  font-size: 10px;
+  line-height: 1;
+  padding: 1px 5px;
+  margin-left: 6px;
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  border-radius: 8px;
+  vertical-align: middle;
+  pointer-events: auto;
+  user-select: none;
+}
+
+.palette-row.selected .param-badge {
+  background: rgba(255, 255, 255, 0.15);
+  color: rgba(0, 0, 0, 0.75);
+  font-weight: 600;
+}
+
+.palette-row.show-value .row-menu-button {
+  color: var(--accent-blue);
+}
+
+.palette-row.show-value .row-menu-button:hover {
+  color: #0055aa;
 }

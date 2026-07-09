@@ -1,16 +1,12 @@
 import React from 'react';
 
-const TypeOverlay = ({ query }) => {
-  const show = query && query.trim().length > 0;
+const TypeOverlay = ({ query, hidden }) => {
+  if (hidden) return null;
+  const hasQuery = query && query.trim().length > 0;
 
   return (
-    <div
-      id="typeOverlay"
-      style={{
-        display: show ? 'block' : 'none'
-      }}
-    >
-      {query}
+    <div id="typeOverlay" className={hasQuery ? 'has-query' : ''}>
+      {hasQuery ? query : 'Start typing to search…'}
     </div>
   );
 };

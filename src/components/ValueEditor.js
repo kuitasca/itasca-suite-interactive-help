@@ -1,9 +1,38 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import ArgumentInput from './ArgumentInput';
 
-const ValueEditor = ({ item, helpContext }) => {
+const ValueEditor = ({ item, args: argsProp, display, helpContext, extractedArgValues }) => {
 
-  const args = Array.isArray(item.inputs) ? item.inputs : [];
+  const args = argsProp !== undefined ? argsProp : (Array.isArray(item.inputs) ? item.inputs : []);
+
+  // Compute argIndex → default value string from the raw extracted arg value tokens.
+  // Uses the same pre/post-range ordering logic as callQt2.
+  const prefillMap = (() => {
+    if (!extractedArgValues) return {};
+    const d = display || '';
+    const rangeMatch = d.match(/\brange\b/);
+    const rangePos = rangeMatch ? rangeMatch.index : Infinity;
+
+    const sorted = args
+      .map((arg, originalIndex) => {
+        const pos = d.indexOf(arg.name);
+        return { originalIndex, pos: pos === -1 ? Infinity : pos };
+      })
+      .sort((a, b) => a.pos - b.pos);
+
+    const isPost = ({ pos }) => rangePos < Infinity && pos !== Infinity && pos > rangePos;
+    const preRangeArgs = sorted.filter(s => !isPost(s));
+    const postRangeArgs = sorted.filter(isPost);
+
+    const map = {};
+    extractedArgValues.preRange.forEach((val, i) => {
+      if (preRangeArgs[i]) map[preRangeArgs[i].originalIndex] = val;
+    });
+    extractedArgValues.postRange.forEach((val, i) => {
+      if (postRangeArgs[i]) map[postRangeArgs[i].originalIndex] = val;
+    });
+    return map;
+  })();
 
   // ✅ Hooks must always run
   const [inputValues, setInputValues] = useState({});
@@ -41,6 +70,7 @@ const ValueEditor = ({ item, helpContext }) => {
           itemId={item.id}
           helpContext={helpContext}
           onChange={(values) => handleValueChange(index, values)}
+          defaultValue={prefillMap[index]}
         />
       ))}
     </div>

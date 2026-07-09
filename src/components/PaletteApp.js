@@ -9,6 +9,35 @@ import { ReactComponent as CloseIcon } from './assets/icons/close_off.svg';
 import { ReactComponent as ResetIcon } from './assets/icons/reset_tree.svg';
 
 
+// Walk the tree to separate command-path keyword tokens from embedded arg values.
+// Tokens that match a child node label are command keywords; everything else is an arg value.
+// Returns { commandTokens, preRangeArgValues, postRangeArgValues }.
+function parseLineOfText(lineOfText, rootNodes) {
+  const tokens = lineOfText.trim().split(/\s+/).filter(Boolean);
+  let currentNodes = rootNodes || [];
+  const commandTokens = [];
+  const preRangeArgValues = [];
+  const postRangeArgValues = [];
+  let seenRange = false;
+
+  for (const token of tokens) {
+    const tokenLower = token.toLowerCase();
+    const matched = currentNodes.find(n => {
+      const label = ((n.title || n.display) + '').split(' ')[0].toLowerCase();
+      return label === tokenLower;
+    });
+    if (matched) {
+      commandTokens.push(token);
+      if (tokenLower === 'range') seenRange = true;
+      currentNodes = matched.children || [];
+    } else {
+      (seenRange ? postRangeArgValues : preRangeArgValues).push(token);
+    }
+  }
+
+  return { commandTokens, preRangeArgValues, postRangeArgValues };
+}
+
 const PaletteApp = () => {
   const [treeData, setTreeData] = useState(null);
   const [commandsTreeData, setCommandsTreeData] = useState(null);
@@ -39,6 +68,41 @@ const PaletteApp = () => {
   const [aiResults, setAiResults] = useState([]);
   const [aiExpandedRows, setAiExpandedRows] = useState({});
 
+  // extractedArgValues: arg value tokens parsed from lineOfText { preRange: string[], postRange: string[] }
+  const [extractedArgValues, setExtractedArgValues] = useState(null);
+
+  // Draggable separator between ai-chat-body and palette-list
+  const [aiChatHeight, setAiChatHeight] = useState(null); // null = use flex default
+  const aiSeparatorDragging = useRef(false);
+  const aiPanelRef = useRef(null);
+
+  const handleAiSeparatorMouseDown = useCallback((e) => {
+    e.preventDefault();
+    aiSeparatorDragging.current = true;
+    document.body.style.cursor = 'row-resize';
+    document.body.style.userSelect = 'none';
+
+    const onMouseMove = (moveE) => {
+      if (!aiSeparatorDragging.current || !aiPanelRef.current) return;
+      const panelRect = aiPanelRef.current.getBoundingClientRect();
+      const newHeight = moveE.clientY - panelRect.top;
+      const minH = 60;
+      const maxH = panelRect.height - 100; // leave room for list + input
+      setAiChatHeight(Math.max(minH, Math.min(maxH, newHeight)));
+    };
+
+    const onMouseUp = () => {
+      aiSeparatorDragging.current = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }, []);
+
   const paletteListRef = useRef(null);
   const qtBridgeRef = useRef(null); // holds the Qt bridge object when running inside QWebEngine
 
@@ -53,11 +117,19 @@ const PaletteApp = () => {
   }, [filterQuery]);
 
   // Parse command tree and build index
-  const buildIndex = useCallback((node, path = []) => {
+  const buildIndex = useCallback((node, path = [], parentArgs = []) => {
     if (!node?.title) return [];
 
-    // new JSON structure passes argument descriptions directly
-    const args = Array.isArray(node.inputs) ? node.inputs : [];
+    const ownArgs = Array.isArray(node.inputs) ? node.inputs : [];
+    const parentDeduped = [...new Map(parentArgs.map(a => [a.name, a])).values()];
+    const argsEq = (a, b) => a.name === b.name && a.type === b.type;
+    const n = parentDeduped.length, m = ownArgs.length;
+    // If ownArgs is a structural copy of the last m parentDeduped args, it's a redundant
+    // re-declaration at this leaf level (e.g. range active repeating zone copy's v,b).
+    // Drop it. Otherwise append so genuinely different same-named args (e.g. annulus center v) both appear.
+    const ownRedundant = m > 0 && m <= n && parentDeduped.slice(n - m).every((p, i) => argsEq(p, ownArgs[i]));
+    const args = ownRedundant ? parentDeduped : [...parentDeduped, ...ownArgs];
+
     // `label` is the search token (first word of title), `display` is full shown title
     const commandLabel = (node.title || node.display).split(' ')[0];
     const display = node.display || node.title;
@@ -91,7 +163,7 @@ const PaletteApp = () => {
     if (node.children) {
       for (const child of node.children) {
         // use push to avoid creating new arrays each iteration
-        const childCommands = buildIndex(child, nextPath);
+        const childCommands = buildIndex(child, nextPath, args);
         if (childCommands.length) {
           commands.push(...childCommands);
         }
@@ -118,6 +190,8 @@ const PaletteApp = () => {
     // });
   }, []);
 
+  const lastSearchQueryRef = useRef(undefined);
+
   // Search index
   const handleSearchIndex = useCallback((query) => {
     const tokens = query.trim() ? query.toLowerCase().split(/\s+/) : [];
@@ -126,6 +200,14 @@ const PaletteApp = () => {
 
     const getLabel = (n) => ((n.title || n.display) + '').split(' ')[0];
     const getDisplay = (n) => n.display || n.title || '';
+    const getArgs = (n) => Array.isArray(n.inputs) ? n.inputs : [];
+    const argsEq = (a, b) => a.name === b.name && a.type === b.type;
+    const mergeArgs = (parent, own) => {
+      const parentDeduped = [...new Map(parent.map(a => [a.name, a])).values()];
+      const n = parentDeduped.length, m = own.length;
+      const ownRedundant = m > 0 && m <= n && parentDeduped.slice(n - m).every((p, i) => argsEq(p, own[i]));
+      return ownRedundant ? parentDeduped : [...parentDeduped, ...own];
+    };
 
     if (tokens.length === 0) {
       if (treeData) {
@@ -133,6 +215,7 @@ const PaletteApp = () => {
           // root items: single-token label and full display
           label: getLabel(node),
           display: getDisplay(node),
+          args: getArgs(node),
           item: node
         }));
       }
@@ -140,6 +223,7 @@ const PaletteApp = () => {
       let currentNodes = treeData || [];
       let path = [];
       let displayPath = [];
+      let parentArgs = [];
 
       for (let i = 0; i < tokens.length - 1; i++) {
         const token = tokens[i];
@@ -154,8 +238,9 @@ const PaletteApp = () => {
 
         // keep path entries as the node's label (search tokens)
         path.push(getLabel(found));
-        // keep displayPath entries as the node's full display for nicer UI 
+        // keep displayPath entries as the node's full display for nicer UI
         displayPath.push(getDisplay(found));
+        parentArgs = mergeArgs(parentArgs, getArgs(found));
         currentNodes = found.children || [];
       }
 
@@ -169,10 +254,12 @@ const PaletteApp = () => {
         for (const node of levelMatches) {
           const name = getLabel(node);
           const fullPath = [...path, name].join(' ');
+          const nodeArgs = mergeArgs(parentArgs, getArgs(node));
 
           results.push({
             label: fullPath,
             display: getDisplay(node),
+            args: nodeArgs,
             item: node
           });
 
@@ -182,6 +269,7 @@ const PaletteApp = () => {
               results.push({
                 label: [...path, name, childName].join(' '),
                 display: getDisplay(child),
+                args: mergeArgs(nodeArgs, getArgs(child)),
                 item: child
               });
             }
@@ -194,10 +282,12 @@ const PaletteApp = () => {
           const displayName = getDisplay(node);
           const fullLabelPath = [...path, name].join(' ');
           const fullDisplayPath = [...displayPath, displayName].join(' ');
+          const nodeArgs = mergeArgs(parentArgs, getArgs(node));
 
           results.push({
             label: fullLabelPath,
             display: fullDisplayPath,
+            args: nodeArgs,
             item: node
           });
 
@@ -210,6 +300,7 @@ const PaletteApp = () => {
               results.push({
                 label: fullLabelChildPath,
                 display: fullDisplayChildPath,
+                args: mergeArgs(nodeArgs, getArgs(child)),
                 item: child
               });
             }
@@ -219,16 +310,20 @@ const PaletteApp = () => {
     }
 
     setVisibleRows(results);
-    const newIndex = results.length > 0 ? 0 : -1;
-    setSelectedIndex(newIndex);
-    setSelectedRow(newIndex >= 0 ? results[0] : null);
+    if (query !== lastSearchQueryRef.current) {
+      lastSearchQueryRef.current = query;
+      const newIndex = results.length > 0 ? 0 : -1;
+      setSelectedIndex(newIndex);
+      setSelectedRow(newIndex >= 0 ? results[0] : null);
+    }
   }, [treeData, helpContext]);
 
   // Helpers
-  const clearSelection = useCallback(() => {
+  const clearSelection = useCallback((preserveArgValues = false) => {
     setSelectedRow(null);
     setSelectedIndex(-1);
     setExpandedRows({});
+    if (!preserveArgValues) setExtractedArgValues(null);
   }, []);
 
   const callQt = useCallback((action, itemId) => {
@@ -241,6 +336,73 @@ const PaletteApp = () => {
       console.warn('Qt action not available:', action);
     }
   }, []);
+
+  const callQt2 = useCallback((action, row) => {
+    console.log(row)
+    const item = row?.item;
+    if (!item) return;
+    
+    // pathString is set on filter-mode rows; palette-mode rows carry the full path in label.
+    const fullCommand = row.pathString || row.label || '';
+    // Split label at 'range' keyword: base command tokens before it,
+    // range-path tokens (range + qualifiers) go after all arg values.
+    const labelTokens = fullCommand.split(/\s+/).filter(Boolean);
+    const rangeIdx = labelTokens.indexOf('range');
+    const commandNames = rangeIdx === -1 ? labelTokens : labelTokens.slice(0, rangeIdx);
+    const labelRangeTokens = rangeIdx === -1 ? [] : labelTokens.slice(rangeIdx);
+
+    // Use row.args (includes inherited parent args) for DOM lookup —
+    // indices must match what ValueEditor rendered.
+    const argDefs = Array.isArray(row.args) ? row.args : [];
+    const display = row.display || '';
+
+    // Find where 'range' keyword appears in the display string so we can put
+    // args that fall after it (e.g. fl, fu) after the range label tokens.
+    const rangeDisplayMatch = display.match(/\brange\b/);
+    const rangeDisplayPos = rangeDisplayMatch ? rangeDisplayMatch.index : Infinity;
+
+    // Sort by position of arg.name in display so order matches command syntax.
+    const sorted = argDefs
+      .map((arg, originalIndex) => {
+        const pos = display.indexOf(arg.name);
+        return { arg, originalIndex, pos: pos === -1 ? Infinity : pos };
+      })
+      .sort((a, b) => a.pos - b.pos);
+
+    const preRangeTokens = [];
+    const postRangeTokens = [];
+
+    sorted.forEach(({ arg, originalIndex: argIndex }) => {
+      let value = '';
+      if (arg.type === 'vector') {
+        const x = document.getElementById(`${item.id}_${argIndex}_${arg.name}_x`)?.value ?? '';
+        const y = document.getElementById(`${item.id}_${argIndex}_${arg.name}_y`)?.value ?? '';
+        const z = document.getElementById(`${item.id}_${argIndex}_${arg.name}_z`)?.value ?? '';
+        value = [x, y, z].filter(Boolean).join(',');
+      } else {
+        const el = document.getElementById(`${item.id}_${argIndex}_${arg.name}_0`);
+        if (el) value = el.type === 'checkbox' ? (el.checked ? 'true' : 'false') : (el.value ?? '');
+      }
+      if (!value) return;
+      const token = arg.type === 'namedRange' ? `range ${value}` : value;
+      const argPos = display.indexOf(arg.name);
+      if (argPos !== -1 && argPos > rangeDisplayPos) {
+        postRangeTokens.push(token);
+      } else {
+        preRangeTokens.push(token);
+      }
+    });
+
+    const command = [...commandNames, ...preRangeTokens, ...labelRangeTokens, ...postRangeTokens].join(' ');
+    console.log(`${action} (callQt2): ${command}`);
+    const bridge = qtBridgeRef.current;
+    if (bridge && typeof bridge[action] === 'function') {
+      bridge[action](command);
+    } else {
+      console.warn('Qt action not available:', action);
+    }
+  }, []);
+  
   const callQtCloseEvent = useCallback((action, ...args) => {
     const bridge = qtBridgeRef.current;
 
@@ -351,7 +513,7 @@ const PaletteApp = () => {
 
     parts.pop(); // remove last token
 
-    clearSelection();
+    clearSelection(true);
     updateOverlayAndSearch(parts.join(' '));
   }, [tokensFilter, currentTokenFilter, clearSelection, updateOverlayAndSearch]);
 
@@ -444,7 +606,12 @@ const PaletteApp = () => {
         if (selectedIndex >= 0) {
           const row = visibleRows[selectedIndex];
           if (row) {
-            callQt('insertAllCommand', row.item?.id);
+            const hasArgs = Array.isArray(row.args) && row.args.length > 0;
+            if (hasArgs && !expandedRows[selectedIndex]) {
+              setExpandedRows(prev => ({ ...prev, [selectedIndex]: true }));
+            } else {
+              callQt2('insertAllCommand', row);
+            }
           }
         }
         e.preventDefault();
@@ -474,6 +641,11 @@ const PaletteApp = () => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentTokenFilter, tokensFilter, selectedIndex, visibleRows, mode, handleSearchIndex]);
+
+  // Reset query tracker when tree data changes so new tree always selects row 0
+  useEffect(() => {
+    lastSearchQueryRef.current = undefined;
+  }, [treeData]);
 
   // Update search index when query changes
   useEffect(() => {
@@ -575,8 +747,21 @@ const PaletteApp = () => {
       setActiveTab('palette');
       setFilterAIActive(false);
       setFilterActive(false);
-    } 
-    updateOverlayAndSearch(lineOfText);
+      setFilterQuery('');
+    }
+
+    // Separate command-path keywords from embedded arg values in lineOfText.
+    // e.g. "zone copy 21,21,21 false range active" → commandTokens: ["zone","copy","range","active"],
+    //      preRangeArgValues: ["21,21,21","false"], postRangeArgValues: []
+    const rootNodes = data.isFish ? fishTreeData?.children : commandsTreeData?.children;
+    const { commandTokens, preRangeArgValues, postRangeArgValues } = parseLineOfText(lineOfText, rootNodes);
+    const hasArgValues = preRangeArgValues.length > 0 || postRangeArgValues.length > 0;
+    if (hasArgValues) {
+      setExtractedArgValues({ preRange: preRangeArgValues, postRange: postRangeArgValues });
+    }
+
+    // Navigate using only the command-path tokens (arg values stripped out).
+    updateOverlayAndSearch(commandTokens.join(' '));
     let commands = [];
     if (data.isFish) {
       setTreeData(fishTreeData?.children);
@@ -925,12 +1110,13 @@ const PaletteApp = () => {
           <a
             href="#"
             className="reset-button"
-            title="Reset Tree"
+            title="Reset search"
             onClick={(e) => {
               e.preventDefault();
               setCurrentTokenFilter('');
               setTokensFilter([]);
               handleSearchIndex('');
+              setFilterQuery('');
             }}
           >
           <ResetIcon className="icon" />
@@ -984,14 +1170,14 @@ const PaletteApp = () => {
 
       {activeTab === 'palette' ? (
         <>
-          <TypeOverlay query={[...tokensFilter, currentTokenFilter].join(' ')} />
+      <TypeOverlay query={[...tokensFilter, currentTokenFilter].join(' ')} hidden={filterActive} />    
           <ContextMenu
             {...contextMenu}
             usePathString={filterActive}
             onClose={handleCloseContextMenu}
             onUpOneLevel={goUpOneLevel}
             onInsertLast={() => callQt('insertLastCommand', contextMenu.node?.item?.id)}
-            onInsertAll={() => callQt('insertAllCommand', contextMenu.node?.item?.id)}
+            onInsertAll={() => callQt2('insertAllCommand', contextMenu.node)}
             onShowHelp={() => callQt('showHelpCommand', contextMenu.node?.item?.id)}
             onAskToAI={handleAskToAI}
             helpContext={helpContext}
@@ -1008,12 +1194,14 @@ const PaletteApp = () => {
             }}
             onContextMenu={handleContextMenu}
             onRowClick={handleRowClick}
+            onInsertAll={(row) => callQt2('insertAllCommand', row)}
             helpContext={helpContext}
+            extractedArgValues={extractedArgValues}
           />
         </>
       ) : (
-        <div className="ai-mode-panel">
-          <div className="ai-chat-body">
+        <div className="ai-mode-panel" ref={aiPanelRef}>
+          <div className="ai-chat-body" style={aiChatHeight != null ? { flex: 'none', height: aiChatHeight } : undefined}>
             {aiMessages.map((msg, index) => (
               <div key={index} className={`ai-message-row ${msg.role}`}>
                 <div
@@ -1037,6 +1225,12 @@ const PaletteApp = () => {
             )}
           </div>
 
+          {aiResults.length > 0 && (
+            <div className="ai-separator" onMouseDown={handleAiSeparatorMouseDown}>
+              <div className="ai-separator-handle" />
+            </div>
+          )}
+
           <ContextMenu
             {...bubbleContextMenu}
             onlyAsk={true}
@@ -1052,7 +1246,7 @@ const PaletteApp = () => {
                 onClose={handleCloseContextMenu}
                 onUpOneLevel={goUpOneLevel}
                 onInsertLast={() => callQt('insertLastCommand', contextMenu.node?.item?.id)}
-                onInsertAll={() => callQt('insertAllCommand', contextMenu.node?.item?.id)}
+                onInsertAll={() => callQt2('insertAllCommand', contextMenu.node)}
                 onShowHelp={() => callQt('showHelpCommand', contextMenu.node?.item?.id)}
                 onAskToAI={handleAskToAI}
                 helpContext={helpContext}
@@ -1075,6 +1269,7 @@ const PaletteApp = () => {
                   setSelectedRow(row);
                   setAiExpandedRows(prev => ({ ...prev, [index]: !prev[index] }));
                 }}
+                onInsertAll={(row) => callQt2('insertAllCommand', row)}
                 helpContext={helpContext}
               />
             </>
