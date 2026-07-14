@@ -106,6 +106,186 @@ const PaletteApp = () => {
   const paletteListRef = useRef(null);
   const qtBridgeRef = useRef(null); // holds the Qt bridge object when running inside QWebEngine
 
+  const QT_MODIFIERS = {
+    SHIFT: 0x02000000,
+    CTRL: 0x04000000,
+    ALT: 0x08000000,
+    META: 0x10000000,
+  };
+
+  const QT_KEY_MAP = {
+    0x01000000: 'Escape',
+    0x01000001: 'Tab',
+    0x01000003: 'Backspace',
+    0x01000004: 'Enter',
+    0x01000005: 'Enter',
+    0x01000010: 'Home',
+    0x01000012: 'ArrowLeft',
+    0x01000013: 'ArrowUp',
+    0x01000014: 'ArrowRight',
+    0x01000015: 'ArrowDown',
+    0x20: ' ',
+  };
+
+  const normalizeQtKeyToDomKey = useCallback((text, key) => {
+    const printable = (text || '').toString();
+    if (printable.length === 1) {
+      return printable;
+    }
+
+    if (typeof key === 'string') {
+      const normalized = key.trim();
+      if (!normalized) return '';
+      const aliases = {
+        Space: ' ',
+        Spacebar: ' ',
+        Return: 'Enter',
+        Esc: 'Escape',
+        Down: 'ArrowDown',
+        Up: 'ArrowUp',
+        Left: 'ArrowLeft',
+        Right: 'ArrowRight',
+      };
+      return aliases[normalized] || normalized;
+    }
+
+    if (typeof key === 'number') {
+      if (key >= 0x41 && key <= 0x5A) {
+        return String.fromCharCode(key);
+      }
+      if (key >= 0x30 && key <= 0x39) {
+        return String.fromCharCode(key);
+      }
+      return QT_KEY_MAP[key] || '';
+    }
+
+    return '';
+  }, []);
+
+  const processKeyInput = useCallback((e) => {
+    //if (e.key === 'Home') {
+    if (e.ctrlKey && e.key === 'Home') {
+      setCurrentTokenFilter('');
+      setTokensFilter([]);
+      handleSearchIndex('');
+      e.preventDefault?.();
+      return;
+    }
+
+    if (e.key === 'Escape') {
+      e.preventDefault?.();
+      callQtCloseEvent('eventCloseFunction');
+      return;
+    }
+
+    const el = e.target;
+    if (
+      el instanceof HTMLInputElement ||
+      el instanceof HTMLTextAreaElement ||
+      el instanceof HTMLSelectElement ||
+      el?.isContentEditable
+    ) {
+      return;
+    }
+
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+    if (e.key === 'Backspace') {
+      if (currentTokenFilter.length > 0) {
+        setCurrentTokenFilter(prev => prev.slice(0, -1));
+      } else if (tokensFilter.length > 0) {
+        setTokensFilter(prev => prev.slice(0, -1));
+        setCurrentTokenFilter(tokensFilter[tokensFilter.length - 1] || '');
+      }
+      e.preventDefault?.();
+      return;
+    }
+
+    if (e.key === ' ') {
+      if (currentTokenFilter.length > 0) {
+        setTokensFilter(prev => [...prev, currentTokenFilter]);
+        setCurrentTokenFilter('');
+      }
+      e.preventDefault?.();
+      return;
+    }
+
+    if (e.key === 'Tab') {
+      if (selectedIndex >= 0 && visibleRows[selectedIndex]) {
+        const fullPath = visibleRows[selectedIndex].label;
+        const pathTokens = fullPath.split(' ');
+        setTokensFilter(pathTokens.slice(0, pathTokens.length - 1));
+        setCurrentTokenFilter(pathTokens[pathTokens.length - 1]);
+      }
+      e.preventDefault?.();
+      return;
+    }
+
+    if (e.key === 'ArrowRight') {
+      if (selectedIndex >= 0 && visibleRows[selectedIndex]) {
+        const fullPath = visibleRows[selectedIndex].label;
+        setTokensFilter(fullPath.split(' '));
+        setCurrentTokenFilter('');
+      }
+      e.preventDefault?.();
+      return;
+    }
+
+    if (e.key === 'ArrowDown') {
+      setSelectedIndex(prev =>
+        prev < visibleRows.length - 1 ? prev + 1 : prev
+      );
+      e.preventDefault?.();
+      return;
+    }
+
+    if (e.key === 'ArrowUp') {
+      setSelectedIndex(prev => (prev > 0 ? prev - 1 : prev));
+      e.preventDefault?.();
+      return;
+    }
+
+    if (e.key === 'Enter') {
+      if (selectedIndex >= 0) {
+        const row = visibleRows[selectedIndex];
+        if (row) {
+          const hasArgs = Array.isArray(row.args) && row.args.length > 0;
+          if (hasArgs && !expandedRows[selectedIndex]) {
+            setExpandedRows(prev => ({ ...prev, [selectedIndex]: true }));
+          } else {
+            callQt2('insertAllCommand', row);
+          }
+        }
+      }
+      e.preventDefault?.();
+      return;
+    }
+
+    if (e.key.length === 1) {
+      if (mode !== 'palette') {
+        setMode('palette');
+      }
+      setCurrentTokenFilter(prev => prev + e.key.toLowerCase());
+      e.preventDefault?.();
+    }
+  }, [currentTokenFilter, tokensFilter, selectedIndex, visibleRows, expandedRows, mode, handleSearchIndex, callQtCloseEvent, callQt2]);
+
+  const dispatchQtKeyToPalette = useCallback((text, key, modifiers = 0, autoRepeat = false) => {
+    const domKey = normalizeQtKeyToDomKey(text, key);
+    if (!domKey) return;
+
+    processKeyInput({
+      key: domKey,
+      ctrlKey: !!(modifiers & QT_MODIFIERS.CTRL),
+      shiftKey: !!(modifiers & QT_MODIFIERS.SHIFT),
+      altKey: !!(modifiers & QT_MODIFIERS.ALT),
+      metaKey: !!(modifiers & QT_MODIFIERS.META),
+      repeat: !!autoRepeat,
+      target: null,
+      preventDefault: () => {},
+    });
+  }, [normalizeQtKeyToDomKey, processKeyInput]);
+
   const [debouncedFilterQuery, setDebouncedFilterQuery] = useState('');
   const MAX_RESULTS = 500;
   useEffect(() => {
@@ -520,127 +700,12 @@ const PaletteApp = () => {
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e) => {
-      //if (e.key === 'Home') {
-      if (e.ctrlKey && e.key === 'Home') {
-        setCurrentTokenFilter('');
-        setTokensFilter([]);
-        handleSearchIndex('');
-        e.preventDefault();
-        return;
-      }
-
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        callQtCloseEvent('eventCloseFunction');
-        return;
-      }
-
-      const el = e.target;
-      if (
-        el instanceof HTMLInputElement ||
-        el instanceof HTMLTextAreaElement ||
-        el instanceof HTMLSelectElement ||
-        el.isContentEditable
-      ) {
-        return;
-      }
-
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
-
-      if (e.key === 'Backspace') {
-        if (currentTokenFilter.length > 0) {
-          setCurrentTokenFilter(prev => prev.slice(0, -1));
-        } else if (tokensFilter.length > 0) {
-          setTokensFilter(prev => prev.slice(0, -1));
-          setCurrentTokenFilter(prev => tokensFilter[tokensFilter.length - 1] || '');
-        }
-        e.preventDefault();
-        return;
-      }
-
-      if (e.key === ' ') {
-        if (currentTokenFilter.length > 0) {
-          setTokensFilter(prev => [...prev, currentTokenFilter]);
-          setCurrentTokenFilter('');
-        }
-        e.preventDefault();
-        return;
-      }
-
-      if (e.key === 'Tab') {
-        if (selectedIndex >= 0 && visibleRows[selectedIndex]) {
-          const fullPath = visibleRows[selectedIndex].label;
-          const pathTokens = fullPath.split(' ');
-          setTokensFilter(pathTokens.slice(0, pathTokens.length - 1));
-          setCurrentTokenFilter(pathTokens[pathTokens.length - 1]);
-        }
-        e.preventDefault();
-        return;
-      }
-
-      if (e.key === 'ArrowRight') {
-        if (selectedIndex >= 0 && visibleRows[selectedIndex]) {
-          const fullPath = visibleRows[selectedIndex].label;
-          setTokensFilter(fullPath.split(' '));
-          setCurrentTokenFilter('');
-        }
-        e.preventDefault();
-        return;
-      }
-
-      if (e.key === 'ArrowDown') {
-        setSelectedIndex(prev =>
-          prev < visibleRows.length - 1 ? prev + 1 : prev
-        );
-        e.preventDefault();
-        return;
-      }
-
-      if (e.key === 'ArrowUp') {
-        setSelectedIndex(prev => (prev > 0 ? prev - 1 : prev));
-        e.preventDefault();
-        return;
-      }
-
-      if (e.key === 'Enter') {
-        if (selectedIndex >= 0) {
-          const row = visibleRows[selectedIndex];
-          if (row) {
-            const hasArgs = Array.isArray(row.args) && row.args.length > 0;
-            if (hasArgs && !expandedRows[selectedIndex]) {
-              setExpandedRows(prev => ({ ...prev, [selectedIndex]: true }));
-            } else {
-              callQt2('insertAllCommand', row);
-            }
-          }
-        }
-        e.preventDefault();
-        return;
-      }
-
-      // if (e.key === 'F1') {
-      //   if (selectedIndex >= 0) {
-      //     const row = visibleRows[selectedIndex];
-      //     if (row) {
-      //       console.log('showHelpCommand')
-      //       callQt('showHelpCommand', row.item?.id); 
-      //     }
-      //   }
-      //   e.preventDefault();
-      //   return;
-      // }
-      if (e.key.length === 1) {
-        if (mode !== 'palette') {
-          setMode('palette');
-        }
-        setCurrentTokenFilter(prev => prev + e.key.toLowerCase());
-        e.preventDefault();
-      }
+      processKeyInput(e);
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentTokenFilter, tokensFilter, selectedIndex, visibleRows, mode, handleSearchIndex]);
+  }, [processKeyInput]);
 
   // Reset query tracker when tree data changes so new tree always selects row 0
   useEffect(() => {
@@ -810,6 +875,12 @@ const PaletteApp = () => {
         if (qtBridgeRef.current?.debugFromJs) {
           qtBridgeRef.current.debugFromJs('qtBridge is ok');
         }
+
+        if (qtBridgeRef.current?.editorKeyPressedRequested?.connect) {
+          qtBridgeRef.current.editorKeyPressedRequested.connect((text, key, modifiers, autoRepeat) => {
+            dispatchQtKeyToPalette(text, key, modifiers, autoRepeat);
+          });
+        }
       });
     }
 
@@ -822,7 +893,7 @@ const PaletteApp = () => {
       handleLoadTree(datacommand, datafish);
     };
 
-  }, [clearSelection, handleLoadTree, updateOverlayAndSearch, resetTreeUIFunction]);
+  }, [clearSelection, handleLoadTree, updateOverlayAndSearch, resetTreeUIFunction, dispatchQtKeyToPalette]);
 
   // Prevent browser context menu on AI bubbles
   useEffect(() => {
