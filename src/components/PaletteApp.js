@@ -105,6 +105,10 @@ const PaletteApp = () => {
 
   const paletteListRef = useRef(null);
   const qtBridgeRef = useRef(null); // holds the Qt bridge object when running inside QWebEngine
+  const dispatchQtKeyToPaletteRef = useRef(null);
+  const qtBridgeInitInFlightRef = useRef(false);
+  const qtBridgeConnectedRef = useRef(false);
+  const qtKeySignalConnectedRef = useRef(false);
 
   const QT_MODIFIERS = {
     SHIFT: 0x02000000,
@@ -161,130 +165,6 @@ const PaletteApp = () => {
 
     return '';
   }, []);
-
-  const processKeyInput = useCallback((e) => {
-    //if (e.key === 'Home') {
-    if (e.ctrlKey && e.key === 'Home') {
-      setCurrentTokenFilter('');
-      setTokensFilter([]);
-      handleSearchIndex('');
-      e.preventDefault?.();
-      return;
-    }
-
-    if (e.key === 'Escape') {
-      e.preventDefault?.();
-      callQtCloseEvent('eventCloseFunction');
-      return;
-    }
-
-    const el = e.target;
-    if (
-      el instanceof HTMLInputElement ||
-      el instanceof HTMLTextAreaElement ||
-      el instanceof HTMLSelectElement ||
-      el?.isContentEditable
-    ) {
-      return;
-    }
-
-    if (e.ctrlKey || e.metaKey || e.altKey) return;
-
-    if (e.key === 'Backspace') {
-      if (currentTokenFilter.length > 0) {
-        setCurrentTokenFilter(prev => prev.slice(0, -1));
-      } else if (tokensFilter.length > 0) {
-        setTokensFilter(prev => prev.slice(0, -1));
-        setCurrentTokenFilter(tokensFilter[tokensFilter.length - 1] || '');
-      }
-      e.preventDefault?.();
-      return;
-    }
-
-    if (e.key === ' ') {
-      if (currentTokenFilter.length > 0) {
-        setTokensFilter(prev => [...prev, currentTokenFilter]);
-        setCurrentTokenFilter('');
-      }
-      e.preventDefault?.();
-      return;
-    }
-
-    if (e.key === 'Tab') {
-      if (selectedIndex >= 0 && visibleRows[selectedIndex]) {
-        const fullPath = visibleRows[selectedIndex].label;
-        const pathTokens = fullPath.split(' ');
-        setTokensFilter(pathTokens.slice(0, pathTokens.length - 1));
-        setCurrentTokenFilter(pathTokens[pathTokens.length - 1]);
-      }
-      e.preventDefault?.();
-      return;
-    }
-
-    if (e.key === 'ArrowRight') {
-      if (selectedIndex >= 0 && visibleRows[selectedIndex]) {
-        const fullPath = visibleRows[selectedIndex].label;
-        setTokensFilter(fullPath.split(' '));
-        setCurrentTokenFilter('');
-      }
-      e.preventDefault?.();
-      return;
-    }
-
-    if (e.key === 'ArrowDown') {
-      setSelectedIndex(prev =>
-        prev < visibleRows.length - 1 ? prev + 1 : prev
-      );
-      e.preventDefault?.();
-      return;
-    }
-
-    if (e.key === 'ArrowUp') {
-      setSelectedIndex(prev => (prev > 0 ? prev - 1 : prev));
-      e.preventDefault?.();
-      return;
-    }
-
-    if (e.key === 'Enter') {
-      if (selectedIndex >= 0) {
-        const row = visibleRows[selectedIndex];
-        if (row) {
-          const hasArgs = Array.isArray(row.args) && row.args.length > 0;
-          if (hasArgs && !expandedRows[selectedIndex]) {
-            setExpandedRows(prev => ({ ...prev, [selectedIndex]: true }));
-          } else {
-            callQt2('insertAllCommand', row);
-          }
-        }
-      }
-      e.preventDefault?.();
-      return;
-    }
-
-    if (e.key.length === 1) {
-      if (mode !== 'palette') {
-        setMode('palette');
-      }
-      setCurrentTokenFilter(prev => prev + e.key.toLowerCase());
-      e.preventDefault?.();
-    }
-  }, [currentTokenFilter, tokensFilter, selectedIndex, visibleRows, expandedRows, mode, handleSearchIndex, callQtCloseEvent, callQt2]);
-
-  const dispatchQtKeyToPalette = useCallback((text, key, modifiers = 0, autoRepeat = false) => {
-    const domKey = normalizeQtKeyToDomKey(text, key);
-    if (!domKey) return;
-
-    processKeyInput({
-      key: domKey,
-      ctrlKey: !!(modifiers & QT_MODIFIERS.CTRL),
-      shiftKey: !!(modifiers & QT_MODIFIERS.SHIFT),
-      altKey: !!(modifiers & QT_MODIFIERS.ALT),
-      metaKey: !!(modifiers & QT_MODIFIERS.META),
-      repeat: !!autoRepeat,
-      target: null,
-      preventDefault: () => {},
-    });
-  }, [normalizeQtKeyToDomKey, processKeyInput]);
 
   const [debouncedFilterQuery, setDebouncedFilterQuery] = useState('');
   const MAX_RESULTS = 500;
@@ -593,6 +473,163 @@ const PaletteApp = () => {
     }
   }, []);
 
+  const processKeyInput = useCallback((e) => {
+    console.log(`Key received: ${e.key} (${e.fromQt ? 'Qt' : 'Browser'})`);
+    const isPrintable = typeof e.key === 'string' && e.key.length === 1;
+    const isQtPrintable = !!e.fromQt && isPrintable;
+
+    //if (e.key === 'Home') {
+    if (e.ctrlKey && e.key === 'Home') {
+      setCurrentTokenFilter('');
+      setTokensFilter([]);
+      handleSearchIndex('');
+      e.preventDefault?.();
+      return;
+    }
+
+    if (e.key === 'Escape') {
+      e.preventDefault?.();
+      callQtCloseEvent('eventCloseFunction');
+      return;
+    }
+
+    const el = e.target;
+    if (
+      !e.fromQt && (
+      el instanceof HTMLInputElement ||
+      el instanceof HTMLTextAreaElement ||
+      el instanceof HTMLSelectElement ||
+      el?.isContentEditable
+      )
+    ) {
+      return;
+    }
+
+    if (!isQtPrintable && (e.ctrlKey || e.metaKey || e.altKey)) return;
+
+    if (e.key === 'Backspace') {
+      if (currentTokenFilter.length > 0) {
+        setCurrentTokenFilter(prev => prev.slice(0, -1));
+      } else if (tokensFilter.length > 0) {
+        setTokensFilter(prev => prev.slice(0, -1));
+        setCurrentTokenFilter(tokensFilter[tokensFilter.length - 1] || '');
+      }
+      e.preventDefault?.();
+      return;
+    }
+
+    if (e.key === ' ') {
+      if (currentTokenFilter.length > 0) {
+        setTokensFilter(prev => [...prev, currentTokenFilter]);
+        setCurrentTokenFilter('');
+      }
+      e.preventDefault?.();
+      return;
+    }
+
+    if (e.key === 'Tab') {
+      if (selectedIndex >= 0 && visibleRows[selectedIndex]) {
+        const fullPath = visibleRows[selectedIndex].label;
+        const pathTokens = fullPath.split(' ');
+        setTokensFilter(pathTokens.slice(0, pathTokens.length - 1));
+        setCurrentTokenFilter(pathTokens[pathTokens.length - 1]);
+      }
+      e.preventDefault?.();
+      return;
+    }
+
+    if (e.key === 'ArrowRight') {
+      if (selectedIndex >= 0 && visibleRows[selectedIndex]) {
+        const fullPath = visibleRows[selectedIndex].label;
+        setTokensFilter(fullPath.split(' '));
+        setCurrentTokenFilter('');
+      }
+      e.preventDefault?.();
+      return;
+    }
+
+    if (e.key === 'ArrowDown') {
+      setSelectedIndex(prev =>
+        prev < visibleRows.length - 1 ? prev + 1 : prev
+      );
+      e.preventDefault?.();
+      return;
+    }
+
+    if (e.key === 'ArrowUp') {
+      setSelectedIndex(prev => (prev > 0 ? prev - 1 : prev));
+      e.preventDefault?.();
+      return;
+    }
+
+    if (e.key === 'Enter') {
+      if (selectedIndex >= 0) {
+        const row = visibleRows[selectedIndex];
+        if (row) {
+          const hasArgs = Array.isArray(row.args) && row.args.length > 0;
+          if (hasArgs && !expandedRows[selectedIndex]) {
+            setExpandedRows(prev => ({ ...prev, [selectedIndex]: true }));
+          } else {
+            callQt2('insertAllCommand', row);
+          }
+        }
+      }
+      e.preventDefault?.();
+      return;
+    }
+
+    if (e.key.length === 1) {
+      if (mode !== 'palette') {
+        setMode('palette');
+      }
+      setCurrentTokenFilter(prev => prev + e.key.toLowerCase());
+      e.preventDefault?.();
+    }
+  }, [currentTokenFilter, tokensFilter, selectedIndex, visibleRows, expandedRows, mode, handleSearchIndex, callQtCloseEvent, callQt2]);
+
+  const dispatchQtKeyToPalette = useCallback((text, key, modifiers = 0, autoRepeat = false) => {
+    console.log(`Qt raw key: text="${text}" key=${key} mods=${modifiers}`);
+
+    const domKey = normalizeQtKeyToDomKey(text, key);
+    if (!domKey) return;
+
+    const printableFromQt = (text || '').toString().length === 1;
+
+    // Ensure printable Qt chars always type into the overlay.
+    if (printableFromQt) {
+      if (activeTab !== 'palette') {
+        setActiveTab('palette');
+      }
+      if (filterAIActive) {
+        setFilterAIActive(false);
+      }
+      if (filterActive) {
+        setFilterActive(false);
+      }
+      if (mode !== 'palette') {
+        setMode('palette');
+      }
+      setCurrentTokenFilter(prev => prev + domKey.toLowerCase());
+      return;
+    }
+
+    processKeyInput({
+      key: domKey,
+      fromQt: true,
+      ctrlKey: printableFromQt ? false : !!(modifiers & QT_MODIFIERS.CTRL),
+      shiftKey: !!(modifiers & QT_MODIFIERS.SHIFT),
+      altKey: printableFromQt ? false : !!(modifiers & QT_MODIFIERS.ALT),
+      metaKey: printableFromQt ? false : !!(modifiers & QT_MODIFIERS.META),
+      repeat: !!autoRepeat,
+      target: document.body,
+      preventDefault: () => {},
+    });
+  }, [normalizeQtKeyToDomKey, processKeyInput, activeTab, filterAIActive, filterActive, mode]);
+
+  useEffect(() => {
+    dispatchQtKeyToPaletteRef.current = dispatchQtKeyToPalette;
+  }, [dispatchQtKeyToPalette]);
+
   const resolveDocLink = (href) => {
     const trimmed = (href || '').trim();
     if (!trimmed) return trimmed;
@@ -865,26 +902,56 @@ const PaletteApp = () => {
     }
   }, [commandsTreeData, fishTreeData, treeData, resetTreeUIFunction, helpContext]);
 
-  // Qt bridge initialization and global methods
+  // Qt bridge initialization
   useEffect(() => {
-    if (window.QWebChannel && window.qt) {
+    let cancelled = false;
+
+    const tryInitBridge = () => {
+      if (cancelled || qtBridgeConnectedRef.current || qtBridgeInitInFlightRef.current) return;
+      if (!window.QWebChannel || !window.qt?.webChannelTransport) return;
+
+      qtBridgeInitInFlightRef.current = true;
       new window.QWebChannel(window.qt.webChannelTransport, channel => {
-        qtBridgeRef.current = channel.objects.qtBridge;
-        // also expose globally for easier access in other components
-        window.qtBridge = qtBridgeRef.current;
-        if (qtBridgeRef.current?.debugFromJs) {
-          qtBridgeRef.current.debugFromJs('qtBridge is ok');
+        if (cancelled) return;
+
+        const bridge = channel.objects?.qtBridge;
+        if (!bridge) {
+          qtBridgeInitInFlightRef.current = false;
+          return;
         }
 
-        if (qtBridgeRef.current?.editorKeyPressedRequested?.connect) {
-          qtBridgeRef.current.editorKeyPressedRequested.connect((text, key, modifiers, autoRepeat) => {
-            dispatchQtKeyToPalette(text, key, modifiers, autoRepeat);
+        qtBridgeRef.current = bridge;
+        window.qtBridge = bridge;
+        qtBridgeConnectedRef.current = true;
+
+        if (bridge?.debugFromJs) {
+          bridge.debugFromJs('qtBridge is ok');
+        }
+
+        if (!qtKeySignalConnectedRef.current && bridge?.editorKeyPressedRequested?.connect) {
+          bridge.editorKeyPressedRequested.connect((text, key, modifiers, autoRepeat) => {
+            if (typeof window.handleQtKey === 'function') {
+              window.handleQtKey(text, key, modifiers, autoRepeat);
+            }
           });
+          qtKeySignalConnectedRef.current = true;
         }
-      });
-    }
 
-    // expose utilities for Qt to call
+        qtBridgeInitInFlightRef.current = false;
+      });
+    };
+
+    tryInitBridge();
+    const timer = window.setInterval(tryInitBridge, 500);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  // Expose utilities for Qt to call
+  useEffect(() => {
     window.resetTreeUI = (data) => {
       resetTreeUIFunction(data);
     };
@@ -893,7 +960,11 @@ const PaletteApp = () => {
       handleLoadTree(datacommand, datafish);
     };
 
-  }, [clearSelection, handleLoadTree, updateOverlayAndSearch, resetTreeUIFunction, dispatchQtKeyToPalette]);
+    window.handleQtKey = (text, key, modifiers, autoRepeat) => {
+      dispatchQtKeyToPalette(text, key, modifiers, autoRepeat);
+    };
+
+  }, [handleLoadTree, resetTreeUIFunction, dispatchQtKeyToPalette]);
 
   // Prevent browser context menu on AI bubbles
   useEffect(() => {
