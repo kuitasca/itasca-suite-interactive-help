@@ -5,10 +5,10 @@ import './index.css';
 const root = ReactDOM.createRoot(document.getElementById('root'));
 
 if (process.env.REACT_APP_ENTRY === 'intellisense') {
-  // IntelliSense mode
-  import('./intellisense/IntelliSense.css');
-  import('./App.css');
-  const { default: IntelliSenseApp } = await import('./intellisense/IntelliSenseApp');
+  // IntelliSense mode — static requires to prevent chunk splitting
+  require('./intellisense/IntelliSense.css');
+  require('./App.css');
+  const IntelliSenseApp = require('./intellisense/IntelliSenseApp').default;
   root.render(
     <React.StrictMode>
       <IntelliSenseApp />
@@ -16,7 +16,7 @@ if (process.env.REACT_APP_ENTRY === 'intellisense') {
   );
 } else {
   // Default: Palette mode
-  const { default: App } = await import('./App');
+  const App = require('./App').default;
   root.render(
     <React.StrictMode>
       <App />

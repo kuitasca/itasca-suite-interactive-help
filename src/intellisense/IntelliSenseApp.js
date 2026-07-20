@@ -198,6 +198,10 @@ const IntelliSenseApp = () => {
 
     tryBridge();
     const timer = setInterval(tryBridge, 300);
+
+    // Signal to Qt that the JS API is ready
+    window.intellisenseReady = true;
+
     return () => clearInterval(timer);
   }, [rebuildIndex]);
 
