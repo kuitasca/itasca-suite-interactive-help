@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import PaletteList from '../components/PaletteList';
 import { buildAllCommands } from '../utils/buildIndex';
-import { normalizeQtKeyToDomKey } from '../utils/qtKeys';
+import { normalizeQtKeyToDomKey, QT_MODIFIERS } from '../utils/qtKeys';
 
 const MAX_RESULTS = 50;
 
@@ -13,6 +13,7 @@ const IntelliSenseApp = () => {
   const [visible, setVisible] = useState(false);
   const [query, setQuery] = useState('');
   const [isFish, setIsFish] = useState(false);
+  const [helpContext, setHelpContext] = useState({ slots: [], groups: [], geometrySets: [], ranges: [] });
 
   // Tree data received once from Qt via window.loadTree
   const commandsTreeRef = useRef(null);
@@ -99,6 +100,11 @@ const IntelliSenseApp = () => {
     const domKey = normalizeQtKeyToDomKey(text, key);
     if (!domKey) return;
 
+    const ctrl = !!(modifiers & QT_MODIFIERS.CTRL);
+
+    // 1. Ctrl+Space is reserved for the full palette widget — ignore here
+    if (ctrl && domKey === ' ') return;
+
     if (domKey === 'Escape') {
       setVisible(false);
       setQuery('');
@@ -117,7 +123,14 @@ const IntelliSenseApp = () => {
 
     if (domKey === 'Enter') {
       if (selectedIndex >= 0 && visibleRows[selectedIndex]) {
-        insertCommand(visibleRows[selectedIndex]);
+        const row = visibleRows[selectedIndex];
+        const hasArgs = Array.isArray(row.args) && row.args.length > 0;
+        if (hasArgs && !expandedRows[selectedIndex]) {
+          // 4. Expand to show parameters instead of inserting immediately
+          setExpandedRows(prev => ({ ...prev, [selectedIndex]: true }));
+        } else {
+          insertCommand(row);
+        }
       }
       return;
     }
@@ -131,12 +144,18 @@ const IntelliSenseApp = () => {
       return;
     }
 
+    // 3. Space appends to query as token separator (does NOT clear filter)
+    if (domKey === ' ') {
+      setQuery(prev => prev.length > 0 ? prev + ' ' : prev);
+      return;
+    }
+
     // Printable character
     if (domKey.length === 1) {
       setQuery(prev => prev + domKey.toLowerCase());
       if (!visible) setVisible(true);
     }
-  }, [visible, visibleRows, selectedIndex, insertCommand]);
+  }, [visible, visibleRows, selectedIndex, expandedRows, insertCommand]);
 
   // Keep latest handler in ref for Qt signal
   const handleKeyRef = useRef(handleKey);
@@ -150,8 +169,12 @@ const IntelliSenseApp = () => {
       fishTreeRef.current = datafish;
     };
 
-    window.showIntelliSense = (lineOfText, fishMode) => {
+    window.showIntelliSense = (lineOfText, fishMode, context) => {
       setIsFish(!!fishMode);
+      // Update helpContext if provided (slots, groups, geometrySets, ranges)
+      if (context && typeof context === 'object') {
+        setHelpContext(prev => ({ ...prev, ...context }));
+      }
       // Extract last token from the current line as initial query
       const tokens = (lineOfText || '').trim().split(/\s+/).filter(Boolean);
       const lastToken = tokens[tokens.length - 1] || '';
@@ -202,7 +225,19 @@ const IntelliSenseApp = () => {
     // Signal to Qt that the JS API is ready
     window.intellisenseReady = true;
 
-    return () => clearInterval(timer);
+    // 2. Hide when page becomes hidden (parent minimized)
+    const handleVisibility = () => {
+      if (document.hidden) {
+        setVisible(false);
+        setQuery('');
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, [rebuildIndex]);
 
   if (!visible || visibleRows.length === 0) return null;
@@ -222,10 +257,16 @@ const IntelliSenseApp = () => {
         onContextMenu={() => {}}
         onRowClick={(row, index) => {
           setSelectedIndex(index);
-          insertCommand(row);
+          const hasArgs = Array.isArray(row.args) && row.args.length > 0;
+          if (hasArgs && !expandedRows[index]) {
+            // 4. Click expands params first
+            setExpandedRows(prev => ({ ...prev, [index]: !prev[index] }));
+          } else {
+            insertCommand(row);
+          }
         }}
         onInsertAll={(row) => insertCommand(row)}
-        helpContext={{ slots: [], groups: [], geometrySets: [], ranges: [] }}
+        helpContext={helpContext}
       />
     </div>
   );
