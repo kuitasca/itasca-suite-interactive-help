@@ -62,12 +62,11 @@ const IntelliSenseApp = () => {
     return results;
   }, []);
 
-  // Apply query → filter → display
+  // Apply query → filter → display (DON'T reset expandedRows on every query change)
   useEffect(() => {
     const results = filterCommands(query, allCommands, isFish);
     setVisibleRows(results);
     setSelectedIndex(results.length > 0 ? 0 : -1);
-    setExpandedRows({});
   }, [query, allCommands, isFish, filterCommands]);
 
   // Scroll selected into view
@@ -79,21 +78,86 @@ const IntelliSenseApp = () => {
     if (li) li.scrollIntoView({ block: 'nearest' });
   }, [selectedIndex]);
 
-  // Call Qt bridge action
+  // Call Qt bridge action (use bridgeRef first, fallback to window.qtBridge)
   const callQt = useCallback((action, arg) => {
-    const bridge = bridgeRef.current;
+    const bridge = bridgeRef.current || window.qtBridge;
     if (bridge && typeof bridge[action] === 'function') {
       bridge[action](arg);
+    } else {
+      console.warn('IntelliSense: Qt action not available:', action);
     }
   }, []);
 
-  // Insert the selected command
+  // Tell Qt to hide the popup widget after insert
+  const dismissPopup = useCallback(() => {
+    setVisible(false);
+    setQuery('');
+    setExpandedRows({});
+    const bridge = bridgeRef.current || window.qtBridge;
+    if (bridge && typeof bridge.eventCloseFunction === 'function') {
+      bridge.eventCloseFunction();
+    }
+  }, []);
+
+  // 3. Insert command WITH filled arg values (same logic as PaletteApp's callQt2)
+  const insertCommandWithArgs = useCallback((row) => {
+    const item = row?.item;
+    if (!item) return;
+
+    const fullCommand = row.pathString || row.label || '';
+    const labelTokens = fullCommand.split(/\s+/).filter(Boolean);
+    const rangeIdx = labelTokens.indexOf('range');
+    const commandNames = rangeIdx === -1 ? labelTokens : labelTokens.slice(0, rangeIdx);
+    const labelRangeTokens = rangeIdx === -1 ? [] : labelTokens.slice(rangeIdx);
+
+    const argDefs = Array.isArray(row.args) ? row.args : [];
+    const display = row.display || '';
+
+    const rangeDisplayMatch = display.match(/\brange\b/);
+    const rangeDisplayPos = rangeDisplayMatch ? rangeDisplayMatch.index : Infinity;
+
+    const sorted = argDefs
+      .map((arg, originalIndex) => {
+        const pos = display.indexOf(arg.name);
+        return { arg, originalIndex, pos: pos === -1 ? Infinity : pos };
+      })
+      .sort((a, b) => a.pos - b.pos);
+
+    const preRangeTokens = [];
+    const postRangeTokens = [];
+
+    sorted.forEach(({ arg, originalIndex: argIndex }) => {
+      let value = '';
+      if (arg.type === 'vector') {
+        const x = document.getElementById(`${item.id}_${argIndex}_${arg.name}_x`)?.value ?? '';
+        const y = document.getElementById(`${item.id}_${argIndex}_${arg.name}_y`)?.value ?? '';
+        const z = document.getElementById(`${item.id}_${argIndex}_${arg.name}_z`)?.value ?? '';
+        value = [x, y, z].filter(Boolean).join(',');
+      } else {
+        const el = document.getElementById(`${item.id}_${argIndex}_${arg.name}_0`);
+        if (el) value = el.type === 'checkbox' ? (el.checked ? 'true' : 'false') : (el.value ?? '');
+      }
+      if (!value) return;
+      const token = arg.type === 'namedRange' ? `range ${value}` : value;
+      const argPos = display.indexOf(arg.name);
+      if (argPos !== -1 && argPos > rangeDisplayPos) {
+        postRangeTokens.push(token);
+      } else {
+        preRangeTokens.push(token);
+      }
+    });
+
+    const command = [...commandNames, ...preRangeTokens, ...labelRangeTokens, ...postRangeTokens].join(' ');
+    callQt('insertAllCommand', command);
+    dismissPopup();
+  }, [callQt, dismissPopup]);
+
+  // Simple insert (no args)
   const insertCommand = useCallback((row) => {
     const command = row.pathString || row.label || '';
     callQt('insertAllCommand', command);
-    setVisible(false);
-    setQuery('');
-  }, [callQt]);
+    dismissPopup();
+  }, [callQt, dismissPopup]);
 
   // Keyboard handler
   const handleKey = useCallback((text, key, modifiers, autoRepeat) => {
@@ -102,12 +166,15 @@ const IntelliSenseApp = () => {
 
     const ctrl = !!(modifiers & QT_MODIFIERS.CTRL);
 
-    // 1. Ctrl+Space is reserved for the full palette widget — ignore here
+    // Ctrl+Space is reserved for the full palette widget — ignore here
     if (ctrl && domKey === ' ') return;
+    // Ignore all ctrl/alt/meta combos
+    if (ctrl || !!(modifiers & QT_MODIFIERS.ALT) || !!(modifiers & QT_MODIFIERS.META)) return;
 
     if (domKey === 'Escape') {
       setVisible(false);
       setQuery('');
+      setExpandedRows({});
       return;
     }
 
@@ -126,10 +193,15 @@ const IntelliSenseApp = () => {
         const row = visibleRows[selectedIndex];
         const hasArgs = Array.isArray(row.args) && row.args.length > 0;
         if (hasArgs && !expandedRows[selectedIndex]) {
-          // 4. Expand to show parameters instead of inserting immediately
+          // Expand to show parameters
           setExpandedRows(prev => ({ ...prev, [selectedIndex]: true }));
         } else {
-          insertCommand(row);
+          // Insert with args if expanded, simple insert if no args
+          if (expandedRows[selectedIndex]) {
+            insertCommandWithArgs(row);
+          } else {
+            insertCommand(row);
+          }
         }
       }
       return;
@@ -144,7 +216,7 @@ const IntelliSenseApp = () => {
       return;
     }
 
-    // 3. Space appends to query as token separator (does NOT clear filter)
+    // Space appends to query (does NOT clear/reset)
     if (domKey === ' ') {
       setQuery(prev => prev.length > 0 ? prev + ' ' : prev);
       return;
@@ -155,7 +227,7 @@ const IntelliSenseApp = () => {
       setQuery(prev => prev + domKey.toLowerCase());
       if (!visible) setVisible(true);
     }
-  }, [visible, visibleRows, selectedIndex, expandedRows, insertCommand]);
+  }, [visible, visibleRows, selectedIndex, expandedRows, insertCommand, insertCommandWithArgs]);
 
   // Keep latest handler in ref for Qt signal
   const handleKeyRef = useRef(handleKey);
@@ -169,9 +241,10 @@ const IntelliSenseApp = () => {
       fishTreeRef.current = datafish;
     };
 
+    // showIntelliSense: only call this on FIRST show or context change,
+    // NOT on every keypress (Qt should guard this)
     window.showIntelliSense = (lineOfText, fishMode, context) => {
       setIsFish(!!fishMode);
-      // Update helpContext if provided (slots, groups, geometrySets, ranges)
       if (context && typeof context === 'object') {
         setHelpContext(prev => ({ ...prev, ...context }));
       }
@@ -180,6 +253,7 @@ const IntelliSenseApp = () => {
       const lastToken = tokens[tokens.length - 1] || '';
       setQuery(lastToken);
       setVisible(true);
+      setExpandedRows({});
 
       // Rebuild index for the right tree
       const tree = fishMode ? fishTreeRef.current : commandsTreeRef.current;
@@ -190,6 +264,7 @@ const IntelliSenseApp = () => {
     window.hideIntelliSense = () => {
       setVisible(false);
       setQuery('');
+      setExpandedRows({});
     };
 
     window.handleQtKey = (text, key, modifiers, autoRepeat) => {
@@ -225,11 +300,12 @@ const IntelliSenseApp = () => {
     // Signal to Qt that the JS API is ready
     window.intellisenseReady = true;
 
-    // 2. Hide when page becomes hidden (parent minimized)
+    // Hide when page becomes hidden (parent minimized)
     const handleVisibility = () => {
       if (document.hidden) {
         setVisible(false);
         setQuery('');
+        setExpandedRows({});
       }
     };
     document.addEventListener('visibilitychange', handleVisibility);
@@ -258,14 +334,26 @@ const IntelliSenseApp = () => {
         onRowClick={(row, index) => {
           setSelectedIndex(index);
           const hasArgs = Array.isArray(row.args) && row.args.length > 0;
-          if (hasArgs && !expandedRows[index]) {
-            // 4. Click expands params first
-            setExpandedRows(prev => ({ ...prev, [index]: !prev[index] }));
+          const isExpanded = !!expandedRows[index];
+          if (hasArgs && !isExpanded) {
+            // 1. First click expands to show args
+            setExpandedRows(prev => ({ ...prev, [index]: true }));
+          } else if (hasArgs && isExpanded) {
+            // 1. Second click (already expanded) inserts with args
+            insertCommandWithArgs(row);
+          } else {
+            // No args — insert directly
+            insertCommand(row);
+          }
+        }}
+        onInsertAll={(row) => {
+          // Insert button (➢): if expanded read args, otherwise insert plain
+          if (expandedRows[visibleRows.indexOf(row)]) {
+            insertCommandWithArgs(row);
           } else {
             insertCommand(row);
           }
         }}
-        onInsertAll={(row) => insertCommand(row)}
         helpContext={helpContext}
       />
     </div>
