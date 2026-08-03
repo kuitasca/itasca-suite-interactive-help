@@ -22,12 +22,16 @@ const IntelliSenseApp = () => {
   const bridgeRef = useRef(null);
   const bridgeConnectedRef = useRef(false);
   const visibleRowsRef = useRef(0);
+  const allCommandsRef = useRef([]);
+  const indexedModeRef = useRef(null);
 
   // Build flat index from tree data
   const rebuildIndex = useCallback((forFish) => {
     const tree = forFish ? fishTreeRef.current : commandsTreeRef.current;
     const cmds = buildAllCommands(tree?.children);
     setAllCommands(cmds);
+    allCommandsRef.current = cmds;
+    indexedModeRef.current = forFish ? 'fish' : 'command';
     return cmds;
   }, []);
 
@@ -70,6 +74,10 @@ const IntelliSenseApp = () => {
     setSelectedIndex(results.length > 0 ? 0 : -1);
     visibleRowsRef.current = results.length;
   }, [query, allCommands, isFish, filterCommands]);
+
+  useEffect(() => {
+    allCommandsRef.current = allCommands;
+  }, [allCommands]);
 
   // Scroll selected into view
   useEffect(() => {
@@ -245,19 +253,29 @@ const IntelliSenseApp = () => {
 
     // showIntelliSense: called from Qt on every keypress with the full line text.
     window.showIntelliSense = (lineOfText, fishMode, context) => {
-      setIsFish(!!fishMode);
+      const nextIsFish = !!fishMode;
+      const modeKey = nextIsFish ? 'fish' : 'command';
+      setIsFish(nextIsFish);
       if (context && typeof context === 'object') {
         setHelpContext(prev => ({ ...prev, ...context }));
       }
       // Use full line as filter query so "zone import" works across space
-      setQuery((lineOfText || '').trim());
+      const nextQuery = (lineOfText || '').trim();
+      setQuery(nextQuery);
       setVisible(true);
 
-      // Only rebuild index once (not on every keypress)
-      const tree = fishMode ? fishTreeRef.current : commandsTreeRef.current;
-      if (tree?.children) {
-        setAllCommands(prev => prev.length > 0 ? prev : buildAllCommands(tree.children));
+      // Build/reuse the index for the active mode, then compute row count immediately.
+      let commands = allCommandsRef.current;
+      const tree = nextIsFish ? fishTreeRef.current : commandsTreeRef.current;
+      if (indexedModeRef.current !== modeKey || !Array.isArray(commands) || commands.length === 0) {
+        commands = rebuildIndex(nextIsFish);
       }
+
+      const results = filterCommands(nextQuery, commands, nextIsFish);
+      visibleRowsRef.current = results.length;
+      setVisibleRows(results);
+      setSelectedIndex(results.length > 0 ? 0 : -1);
+      return results.length;
     };
 
     window.hideIntelliSense = () => {
@@ -318,7 +336,7 @@ const IntelliSenseApp = () => {
       clearInterval(timer);
       document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, [rebuildIndex]);
+  }, [rebuildIndex, filterCommands]);
 
   if (!visible) return null;
 
