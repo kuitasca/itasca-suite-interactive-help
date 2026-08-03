@@ -21,6 +21,7 @@ const IntelliSenseApp = () => {
   const listRef = useRef(null);
   const bridgeRef = useRef(null);
   const bridgeConnectedRef = useRef(false);
+  const visibleRowsRef = useRef(0);
 
   // Build flat index from tree data
   const rebuildIndex = useCallback((forFish) => {
@@ -67,6 +68,7 @@ const IntelliSenseApp = () => {
     const results = filterCommands(query, allCommands, isFish);
     setVisibleRows(results);
     setSelectedIndex(results.length > 0 ? 0 : -1);
+    visibleRowsRef.current = results.length;
   }, [query, allCommands, isFish, filterCommands]);
 
   // Scroll selected into view
@@ -94,8 +96,8 @@ const IntelliSenseApp = () => {
     setQuery('');
     setExpandedRows({});
     const bridge = bridgeRef.current || window.qtBridge;
-    if (bridge && typeof bridge.eventCloseFunction === 'function') {
-      bridge.eventCloseFunction();
+    if (bridge && typeof bridge.eventCloseIntellisenseFunction === 'function') {
+      bridge.eventCloseIntellisenseFunction();
     }
   }, []);
 
@@ -241,30 +243,32 @@ const IntelliSenseApp = () => {
       fishTreeRef.current = datafish;
     };
 
-    // showIntelliSense: only call this on FIRST show or context change,
-    // NOT on every keypress (Qt should guard this)
+    // showIntelliSense: called from Qt on every keypress with the full line text.
     window.showIntelliSense = (lineOfText, fishMode, context) => {
       setIsFish(!!fishMode);
       if (context && typeof context === 'object') {
         setHelpContext(prev => ({ ...prev, ...context }));
       }
-      // Extract last token from the current line as initial query
-      const tokens = (lineOfText || '').trim().split(/\s+/).filter(Boolean);
-      const lastToken = tokens[tokens.length - 1] || '';
-      setQuery(lastToken);
+      // Use full line as filter query so "zone import" works across space
+      setQuery((lineOfText || '').trim());
       setVisible(true);
-      setExpandedRows({});
 
-      // Rebuild index for the right tree
+      // Only rebuild index once (not on every keypress)
       const tree = fishMode ? fishTreeRef.current : commandsTreeRef.current;
-      const cmds = buildAllCommands(tree?.children);
-      setAllCommands(cmds);
+      if (tree?.children) {
+        setAllCommands(prev => prev.length > 0 ? prev : buildAllCommands(tree.children));
+      }
     };
 
     window.hideIntelliSense = () => {
       setVisible(false);
       setQuery('');
       setExpandedRows({});
+    };
+
+    // Returns the count of visible rows (used by Qt to resize the popup)
+    window.getIntelliSenseRowCount = () => {
+      return visibleRowsRef.current;
     };
 
     window.handleQtKey = (text, key, modifiers, autoRepeat) => {
@@ -316,13 +320,16 @@ const IntelliSenseApp = () => {
     };
   }, [rebuildIndex]);
 
-  if (!visible || visibleRows.length === 0) return null;
+  if (!visible) return null;
 
   return (
     <div className="intellisense-app">
       <div className="intellisense-query">
         {query || 'Type to filter…'}
       </div>
+      {visibleRows.length === 0 ? (
+        <div className="intellisense-no-results">No suggestions</div>
+      ) : (
       <PaletteList
         ref={listRef}
         visibleRows={visibleRows}
@@ -356,6 +363,7 @@ const IntelliSenseApp = () => {
         }}
         helpContext={helpContext}
       />
+      )}
     </div>
   );
 };
