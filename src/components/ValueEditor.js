@@ -5,6 +5,12 @@ const ValueEditor = ({ item, args: argsProp, display, helpContext, extractedArgV
 
   const args = argsProp !== undefined ? argsProp : (Array.isArray(item.inputs) ? item.inputs : []);
 
+  // Helper to strip quotes from string values
+  const stripQuotes = (val) => {
+    if (!val || typeof val !== 'string') return val;
+    return val.replace(/^['"]|['"]$/g, '');
+  };
+
   // Compute argIndex → default value string from the raw extracted arg value tokens.
   // Uses the same pre/post-range ordering logic as callQt2.
   const prefillMap = (() => {
@@ -26,10 +32,10 @@ const ValueEditor = ({ item, args: argsProp, display, helpContext, extractedArgV
 
     const map = {};
     extractedArgValues.preRange.forEach((val, i) => {
-      if (preRangeArgs[i]) map[preRangeArgs[i].originalIndex] = val;
+      if (preRangeArgs[i]) map[preRangeArgs[i].originalIndex] = stripQuotes(val);
     });
     extractedArgValues.postRange.forEach((val, i) => {
-      if (postRangeArgs[i]) map[postRangeArgs[i].originalIndex] = val;
+      if (postRangeArgs[i]) map[postRangeArgs[i].originalIndex] = stripQuotes(val);
     });
     return map;
   })();

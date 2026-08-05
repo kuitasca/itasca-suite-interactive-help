@@ -5,6 +5,67 @@ import { normalizeQtKeyToDomKey, QT_MODIFIERS } from '../utils/qtKeys';
 
 const MAX_RESULTS = 50;
 
+// Parse a line of text to separate command tokens from argument values
+// Handles quoted strings and strips quotes from argument values.
+function parseLineOfText(lineOfText, rootNodes) {
+  // Parse tokens while respecting quoted strings
+  const tokens = [];
+  let current = '';
+  let inQuotes = false;
+  let quoteChar = '';
+  
+  for (let i = 0; i < lineOfText.length; i++) {
+    const char = lineOfText[i];
+    
+    // Handle quote start/end
+    if ((char === "'" || char === '"') && (i === 0 || lineOfText[i-1] !== '\\')) {
+      if (!inQuotes) {
+        inQuotes = true;
+        quoteChar = char;
+      } else if (char === quoteChar) {
+        inQuotes = false;
+        quoteChar = '';
+      } else {
+        current += char;
+      }
+    } else if (char === ' ' && !inQuotes) {
+      if (current) {
+        tokens.push(current);
+        current = '';
+      }
+    } else {
+      current += char;
+    }
+  }
+  
+  if (current) {
+    tokens.push(current);
+  }
+  
+  let currentNodes = rootNodes || [];
+  const commandTokens = [];
+  const preRangeArgValues = [];
+  const postRangeArgValues = [];
+  let seenRange = false;
+
+  for (const token of tokens) {
+    const tokenLower = token.toLowerCase();
+    const matched = currentNodes.find(n => {
+      const label = ((n.title || n.display) + '').split(' ')[0].toLowerCase();
+      return label === tokenLower;
+    });
+    if (matched) {
+      commandTokens.push(token);
+      if (tokenLower === 'range') seenRange = true;
+      currentNodes = matched.children || [];
+    } else {
+      (seenRange ? postRangeArgValues : preRangeArgValues).push(token);
+    }
+  }
+
+  return { commandTokens, preRangeArgValues, postRangeArgValues };
+}
+
 const IntelliSenseApp = () => {
   const [allCommands, setAllCommands] = useState([]);
   const [visibleRows, setVisibleRows] = useState([]);
@@ -14,6 +75,7 @@ const IntelliSenseApp = () => {
   const [query, setQuery] = useState('');
   const [isFish, setIsFish] = useState(false);
   const [helpContext, setHelpContext] = useState({ slots: [], groups: [], geometrySets: [], ranges: [] });
+  const [extractedArgValues, setExtractedArgValues] = useState(null);
 
   // Tree data received once from Qt via window.loadTree
   const commandsTreeRef = useRef(null);
@@ -154,7 +216,8 @@ const IntelliSenseApp = () => {
         if (el) value = el.type === 'checkbox' ? (el.checked ? 'true' : 'false') : (el.value ?? '');
       }
       if (!value) return;
-      const token = arg.type === 'namedRange' ? `range ${value}` : value;
+      const noQuotes = arg.type === 'int' || arg.type === 'float' || arg.type === 'vector' || arg.type === 'bool';
+      const token = arg.type === 'namedRange' ? `range '${value}'` : (noQuotes ? value : `'${value}'`);
       const argPos = display.indexOf(arg.name);
       if (argPos !== -1 && argPos > rangeDisplayPos) {
         postRangeTokens.push(token);
@@ -196,7 +259,7 @@ const IntelliSenseApp = () => {
 
     if (domKey === 'ArrowDown') {
       setSelectedIndex(prev => prev < visibleRows.length - 1 ? prev + 1 : prev);
-      return;
+      return; 
     }
 
     if (domKey === 'ArrowUp') {
@@ -278,7 +341,19 @@ const IntelliSenseApp = () => {
         commands = rebuildIndex(nextIsFish);
       }
 
-      const results = filterCommands(nextQuery, commands, nextIsFish);
+      // Parse line of text to extract argument values for prefilling in value editor
+      const rootNodes = tree?.children;
+      const { commandTokens, preRangeArgValues, postRangeArgValues } = parseLineOfText(lineOfText, rootNodes);
+      const hasArgValues = preRangeArgValues.length > 0 || postRangeArgValues.length > 0;
+      if (hasArgValues) {
+        setExtractedArgValues({ preRange: preRangeArgValues, postRange: postRangeArgValues });
+      } else {
+        setExtractedArgValues(null);
+      }
+
+      // Use only command tokens for filtering (strip arg values from search)
+      const filterQuery = hasArgValues ? commandTokens.join(' ') : nextQuery;
+      const results = filterCommands(filterQuery, commands, nextIsFish);
       visibleRowsRef.current = results.length;
       setVisibleRows(results);
       setSelectedIndex(results.length > 0 ? 0 : -1);
@@ -289,6 +364,7 @@ const IntelliSenseApp = () => {
       setVisible(false);
       setQuery('');
       setExpandedRows({});
+      setExtractedArgValues(null);
     };
 
     // Returns the count of visible rows (used by Qt to resize the popup)
@@ -335,6 +411,7 @@ const IntelliSenseApp = () => {
         setVisible(false);
         setQuery('');
         setExpandedRows({});
+        setExtractedArgValues(null);
       }
     };
     document.addEventListener('visibilitychange', handleVisibility);
@@ -388,6 +465,7 @@ const IntelliSenseApp = () => {
           }
         }}
         helpContext={helpContext}
+        extractedArgValues={extractedArgValues}
       />
       )}
     </div>

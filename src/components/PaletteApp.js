@@ -10,10 +10,44 @@ import { ReactComponent as ResetIcon } from './assets/icons/reset_tree.svg';
 
 
 // Walk the tree to separate command-path keyword tokens from embedded arg values.
+// Handles quoted strings and strips quotes from argument values.
 // Tokens that match a child node label are command keywords; everything else is an arg value.
 // Returns { commandTokens, preRangeArgValues, postRangeArgValues }.
 function parseLineOfText(lineOfText, rootNodes) {
-  const tokens = lineOfText.trim().split(/\s+/).filter(Boolean);
+  // Parse tokens while respecting quoted strings
+  const tokens = [];
+  let current = '';
+  let inQuotes = false;
+  let quoteChar = '';
+  
+  for (let i = 0; i < lineOfText.length; i++) {
+    const char = lineOfText[i];
+    
+    // Handle quote start/end
+    if ((char === "'" || char === '"') && (i === 0 || lineOfText[i-1] !== '\\')) {
+      if (!inQuotes) {
+        inQuotes = true;
+        quoteChar = char;
+      } else if (char === quoteChar) {
+        inQuotes = false;
+        quoteChar = '';
+      } else {
+        current += char;
+      }
+    } else if (char === ' ' && !inQuotes) {
+      if (current) {
+        tokens.push(current);
+        current = '';
+      }
+    } else {
+      current += char;
+    }
+  }
+  
+  if (current) {
+    tokens.push(current);
+  }
+  
   let currentNodes = rootNodes || [];
   const commandTokens = [];
   const preRangeArgValues = [];
@@ -444,7 +478,8 @@ const PaletteApp = () => {
         if (el) value = el.type === 'checkbox' ? (el.checked ? 'true' : 'false') : (el.value ?? '');
       }
       if (!value) return;
-      const token = arg.type === 'namedRange' ? `range ${value}` : value;
+      const noQuotes = arg.type === 'int' || arg.type === 'float' || arg.type === 'vector' || arg.type === 'bool';
+      const token = arg.type === 'namedRange' ? `range '${value}'` : (noQuotes ? value : `'${value}'`);
       const argPos = display.indexOf(arg.name);
       if (argPos !== -1 && argPos > rangeDisplayPos) {
         postRangeTokens.push(token);
@@ -729,7 +764,6 @@ const PaletteApp = () => {
     if (parts.length <= 1) return; // already at root
 
     parts.pop(); // remove last token
-
     clearSelection(true);
     updateOverlayAndSearch(parts.join(' '));
   }, [tokensFilter, currentTokenFilter, clearSelection, updateOverlayAndSearch]);
