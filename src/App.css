@@ -718,6 +718,25 @@ li>ul {
   color: var(--text-primary);
 }
 
+.row-help-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+}
+
+.row-help-button:hover {
+  color: var(--accent-blue);
+}
+
+.row-help-button .icon {
+  width: 14px;
+  height: 14px;
+}
+
 .param-badge {
   display: inline-block;
   font-size: 10px;

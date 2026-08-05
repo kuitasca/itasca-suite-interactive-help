@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import ValueEditor from './ValueEditor';
+import { ReactComponent as HelpIcon } from './assets/icons/help.svg';
 
 const PaletteRow = ({
   index,
@@ -11,6 +12,7 @@ const PaletteRow = ({
   onToggle,
   onContextMenu,
   onInsertAll,
+  onShowHelp,
   helpContext,
   extractedArgValues
 }) => {
@@ -43,6 +45,15 @@ const PaletteRow = ({
       onContextMenu={onContextMenu}
     >
       <div className="row-right">
+        {onShowHelp && (
+          <button
+            className="row-help-button"
+            title="Selection Reference"
+            onClick={(e) => { e.stopPropagation(); onShowHelp(row); }}
+          >
+            <HelpIcon className="icon" />
+          </button>
+        )}
         {hasArgs && (
           <span className="param-badge" title="Args required">{row.args.length}</span>
         )}

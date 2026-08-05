@@ -475,6 +475,7 @@ const IntelliSenseApp = () => {
             insertCommand(row);
           }
         }}
+        onShowHelp={(row) => callQt('showHelpCommand', row?.item?.id)}
         helpContext={helpContext}
         extractedArgValues={extractedArgValues}
       />
