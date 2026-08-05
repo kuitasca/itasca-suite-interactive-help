@@ -103,12 +103,13 @@ const IntelliSenseApp = () => {
     let results;
 
     if (!lower) {
-      results = commands.slice(0, MAX_RESULTS);
+      results = fishMode ? commands : commands.slice(0, MAX_RESULTS);
     } else {
       results = commands.filter(cmd =>
         cmd.searchKey.includes(lower) ||
         cmd.searchTokens.some(t => t.startsWith(lower))
-      ).slice(0, MAX_RESULTS);
+      );
+      if (!fishMode) results = results.slice(0, MAX_RESULTS);
     }
 
     // In fish mode show only leaf names
@@ -329,8 +330,8 @@ const IntelliSenseApp = () => {
       if (context && typeof context === 'object') {
         setHelpContext(prev => ({ ...prev, ...context }));
       }
-      // Use full line as filter query so "zone import" works across space
-      const nextQuery = (lineOfText || '').trim();
+      // In fish mode show the full flat list regardless of line content
+      const nextQuery = nextIsFish ? '' : (lineOfText || '').trim();
       setQuery(nextQuery);
       setVisible(true);
 
@@ -426,9 +427,19 @@ const IntelliSenseApp = () => {
 
   return (
     <div className="intellisense-app">
-      <div className="intellisense-query">
-        {query || 'Type to filter…'}
-      </div>
+      {isFish ? (
+        <input
+          className="intellisense-query intellisense-query-input"
+          value={query}
+          placeholder="Type to filter…"
+          onChange={e => setQuery(e.target.value)}
+          autoFocus
+        />
+      ) : (
+        <div className="intellisense-query">
+          {query || 'Type to filter…'}
+        </div>
+      )}
       {visibleRows.length === 0 ? (
         <div className="intellisense-no-results">No suggestions</div>
       ) : (

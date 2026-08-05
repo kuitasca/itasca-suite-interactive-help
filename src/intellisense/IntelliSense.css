@@ -29,6 +29,14 @@ body {
   flex-shrink: 0;
 }
 
+input.intellisense-query-input {
+  width: 100%;
+  box-sizing: border-box;
+  border: none;
+  outline: none;
+  font-family: inherit;
+}
+
 .intellisense-no-results {
   padding: 12px 10px;
   font-size: 12px;
