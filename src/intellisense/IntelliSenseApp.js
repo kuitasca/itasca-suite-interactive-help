@@ -98,6 +98,12 @@ const IntelliSenseApp = () => {
     }
   }, []);
 
+  const notifyQtArgsExpanded = useCallback((argCount) => {
+    const bridge = bridgeRef.current || window.qtBridge;
+    if (!bridge || typeof bridge.intelliSenseArgsExpanded !== 'function') return;
+    bridge.intelliSenseArgsExpanded(Math.max(0, Number(argCount) || 0));
+  }, []);
+
   // Tell Qt to hide the popup widget after insert
   const dismissPopup = useCallback(() => {
     setVisible(false);
@@ -204,6 +210,7 @@ const IntelliSenseApp = () => {
         const hasArgs = Array.isArray(row.args) && row.args.length > 0;
         if (hasArgs && !expandedRows[selectedIndex]) {
           // Expand to show parameters
+          notifyQtArgsExpanded(row.args.length);
           setExpandedRows(prev => ({ ...prev, [selectedIndex]: true }));
         } else {
           // Insert with args if expanded, simple insert if no args
@@ -237,7 +244,7 @@ const IntelliSenseApp = () => {
       setQuery(prev => prev + domKey.toLowerCase());
       if (!visible) setVisible(true);
     }
-  }, [visible, visibleRows, selectedIndex, expandedRows, insertCommand, insertCommandWithArgs]);
+  }, [visible, visibleRows, selectedIndex, expandedRows, insertCommand, insertCommandWithArgs, notifyQtArgsExpanded]);
 
   // Keep latest handler in ref for Qt signal
   const handleKeyRef = useRef(handleKey);
@@ -353,7 +360,7 @@ const IntelliSenseApp = () => {
         visibleRows={visibleRows}
         selectedIndex={selectedIndex}
         expandedRows={expandedRows}
-        onToggleExpand={(idx) => setExpandedRows(prev => ({ ...prev, [idx]: !prev[idx] }))}
+        onToggleExpand={() => {}}
         onSelectRow={(index) => setSelectedIndex(index)}
         onContextMenu={() => {}}
         onRowClick={(row, index) => {
@@ -362,6 +369,7 @@ const IntelliSenseApp = () => {
           const isExpanded = !!expandedRows[index];
           if (hasArgs && !isExpanded) {
             // 1. First click expands to show args
+            notifyQtArgsExpanded(row.args.length);
             setExpandedRows(prev => ({ ...prev, [index]: true }));
           } else if (hasArgs && isExpanded) {
             // 1. Second click (already expanded) inserts with args
