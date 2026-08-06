@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import ValueEditor from './ValueEditor';
 import { ReactComponent as HelpIcon } from './assets/icons/help.svg';
+import { ReactComponent as RosieIcon } from './assets/icons/chatbot.svg';
 
 const PaletteRow = ({
   index,
@@ -45,6 +46,15 @@ const PaletteRow = ({
       onContextMenu={onContextMenu}
     >
       <div className="row-right">
+        {onShowHelp && (
+          <button
+            className="row-help-button"
+            title="Selection Reference"
+            onClick={(e) => { e.stopPropagation(); onShowHelp(row); }}
+          >
+            <RosieIcon className="icon" />
+          </button>
+        )}
         {onShowHelp && (
           <button
             className="row-help-button"

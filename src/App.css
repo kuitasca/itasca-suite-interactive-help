@@ -726,6 +726,15 @@ li>ul {
   color: var(--text-secondary);
   display: flex;
   align-items: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+
+.palette-row:hover .row-help-button,
+.palette-row.selected .row-help-button {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .row-help-button:hover {
@@ -735,6 +744,7 @@ li>ul {
 .row-help-button .icon {
   width: 14px;
   height: 14px;
+  pointer-events: none;
 }
 
 .param-badge {
@@ -749,6 +759,13 @@ li>ul {
   vertical-align: middle;
   pointer-events: auto;
   user-select: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.palette-row:hover .param-badge,
+.palette-row.selected .param-badge {
+  opacity: 1;
 }
 
 .palette-row.selected .param-badge {

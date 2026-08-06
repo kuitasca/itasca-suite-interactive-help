@@ -4,6 +4,7 @@ import { buildAllCommands } from '../utils/buildIndex';
 import { normalizeQtKeyToDomKey, QT_MODIFIERS } from '../utils/qtKeys';
 
 const MAX_RESULTS = 50;
+const MAX_FISH_RESULTS = 500;
 
 // Parse a line of text to separate command tokens from argument values
 // Handles quoted strings and strips quotes from argument values.
@@ -124,7 +125,8 @@ const IntelliSenseApp = () => {
             leaf += cmd.display.includes('(2d only)') ? ' (2d only)' : ' (3d only)';
           }
           return { ...cmd, display: leaf };
-        });
+        })
+        .slice(0, MAX_FISH_RESULTS);
     }
 
     return results;
