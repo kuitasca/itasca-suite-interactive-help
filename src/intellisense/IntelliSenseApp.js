@@ -77,6 +77,7 @@ const IntelliSenseApp = () => {
   const [isFish, setIsFish] = useState(false);
   const [helpContext, setHelpContext] = useState({ slots: [], groups: [], geometrySets: [], ranges: [] });
   const [extractedArgValues, setExtractedArgValues] = useState(null);
+  const [toastMsg, setToastMsg] = useState('');
 
   // Tree data received once from Qt via window.loadTree
   const commandsTreeRef = useRef(null);
@@ -240,6 +241,15 @@ const IntelliSenseApp = () => {
     callQt('insertAllCommand', command);
     dismissPopup();
   }, [callQt, dismissPopup]);
+
+  // Send query to Rosie via Qt bridge (fetch runs in Rosie's WebEngine)
+  const askRosie = useCallback((row) => {
+    const query = row?.pathString || row?.label || '';
+    if (!query.trim()) return;
+    callQt('askRosie', query);
+    setToastMsg('Sent to Rosie');
+    setTimeout(() => setToastMsg(''), 1500);
+  }, [callQt]);
 
   // Keyboard handler
   const handleKey = useCallback((text, key, modifiers, autoRepeat) => {
@@ -478,10 +488,12 @@ const IntelliSenseApp = () => {
           }
         }}
         onShowHelp={(row) => callQt('showHelpCommand', row?.item?.id)}
+        onAskRosie={askRosie}
         helpContext={helpContext}
         extractedArgValues={extractedArgValues}
       />
       )}
+      {toastMsg && <div className="intellisense-toast">{toastMsg}</div>}
     </div>
   );
 };

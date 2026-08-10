@@ -12,6 +12,7 @@ const PaletteList = forwardRef((
     onRowClick,
     onInsertAll,
     onShowHelp,
+    onAskRosie,
     helpContext,
     extractedArgValues
   },
@@ -51,6 +52,7 @@ const PaletteList = forwardRef((
           onContextMenu={(e) => handleRowContextMenu(e, index, row)}
           onInsertAll={onInsertAll}
           onShowHelp={onShowHelp}
+          onAskRosie={onAskRosie}
           helpContext={helpContext}
           extractedArgValues={extractedArgValues}
         />

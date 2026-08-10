@@ -431,6 +431,17 @@ const PaletteApp = () => {
     }
   }, []);
 
+  const askRosie = useCallback((row) => {
+    const query = row?.pathString || row?.label || '';
+    if (!query.trim()) return;
+    const bridge = qtBridgeRef.current;
+    if (bridge && typeof bridge.askRosie === 'function') {
+      bridge.askRosie(query);
+    } else {
+      console.warn('Qt action not available: askRosie');
+    }
+  }, []);
+
   const callQt2 = useCallback((action, row) => {
     console.log(row)
     const item = row?.item;
@@ -1371,6 +1382,7 @@ const PaletteApp = () => {
             onContextMenu={handleContextMenu}
             onRowClick={handleRowClick}
             onInsertAll={(row) => callQt2('insertAllCommand', row)}
+            onAskRosie={askRosie}
             helpContext={helpContext}
             extractedArgValues={extractedArgValues}
           />
@@ -1446,6 +1458,7 @@ const PaletteApp = () => {
                   setAiExpandedRows(prev => ({ ...prev, [index]: !prev[index] }));
                 }}
                 onInsertAll={(row) => callQt2('insertAllCommand', row)}
+                onAskRosie={askRosie}
                 helpContext={helpContext}
               />
             </>

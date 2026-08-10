@@ -14,6 +14,7 @@ const PaletteRow = ({
   onContextMenu,
   onInsertAll,
   onShowHelp,
+  onAskRosie,
   helpContext,
   extractedArgValues
 }) => {
@@ -46,11 +47,11 @@ const PaletteRow = ({
       onContextMenu={onContextMenu}
     >
       <div className="row-right">
-        {onShowHelp && (
+        {onAskRosie && (
           <button
             className="row-help-button"
-            title="Selection Reference"
-            onClick={(e) => { e.stopPropagation(); onShowHelp(row); }}
+            title="Ask Rosie"
+            onClick={(e) => { e.stopPropagation(); onAskRosie(row); }}
           >
             <RosieIcon className="icon" />
           </button>
