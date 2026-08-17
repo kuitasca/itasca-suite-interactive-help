@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import PaletteList from '../components/PaletteList';
 import { buildAllCommands } from '../utils/buildIndex';
 import { normalizeQtKeyToDomKey, QT_MODIFIERS } from '../utils/qtKeys';
+import { BridgeClient } from '../utils/bridgeClient';
+import { MESSAGE_TYPES } from '../utils/bridgeMessages';
 
 const MAX_RESULTS = 50;
 const MAX_FISH_RESULTS = 500;
@@ -78,6 +80,8 @@ const IntelliSenseApp = () => {
   const [helpContext, setHelpContext] = useState({ slots: [], groups: [], geometrySets: [], ranges: [] });
   const [extractedArgValues, setExtractedArgValues] = useState(null);
   const [toastMsg, setToastMsg] = useState('');
+
+  const bridgeClientRef = useRef(new BridgeClient('intellisense'));
 
   // Tree data received once from Qt via window.loadTree
   const commandsTreeRef = useRef(null);
@@ -242,12 +246,23 @@ const IntelliSenseApp = () => {
     dismissPopup();
   }, [callQt, dismissPopup]);
 
-  // Send query to Rosie via Qt bridge (fetch runs in Rosie's WebEngine)
-  const askRosie = useCallback((row) => {
+  // Send query to Rosie via Qt bridge
+  const askRosie = useCallback(async (row) => {
     const query = row?.pathString || row?.label || '';
     if (!query.trim()) return;
-    callQt('askRosie', query);
-    setToastMsg('Sent to Rosie');
+    const client = bridgeClientRef.current;
+    if (client.bridge && typeof client.bridge.sendMessage === 'function') {
+      try {
+        await client.send(MESSAGE_TYPES.ASK_ROSIE, { query, sessionId: null, section: 'default' });
+        setToastMsg('Sent to Rosie');
+      } catch {
+        setToastMsg('Rosie unavailable');
+      }
+    } else {
+      // Fallback to legacy bridge method
+      callQt('askRosie', query);
+      setToastMsg('Sent to Rosie');
+    }
     setTimeout(() => setToastMsg(''), 1500);
   }, [callQt]);
 
@@ -401,8 +416,12 @@ const IntelliSenseApp = () => {
         bridgeRef.current = bridge;
         bridgeConnectedRef.current = true;
         window.qtBridge = bridge;
+        bridgeClientRef.current.setBridge(bridge);
 
         if (bridge.debugFromJs) bridge.debugFromJs('intellisense ok');
+
+        // Notify Qt that intellisense is ready
+        bridgeClientRef.current.emit(MESSAGE_TYPES.READY, { capabilities: ['askRosie'] });
 
         if (bridge.editorKeyPressedRequested?.connect) {
           bridge.editorKeyPressedRequested.connect((text, key, mods, repeat) => {
@@ -414,6 +433,11 @@ const IntelliSenseApp = () => {
 
     tryBridge();
     const timer = setInterval(tryBridge, 300);
+
+    // Receive routed messages from Qt hub
+    window.onBridgeMessage = (msgJson) => {
+      bridgeClientRef.current.onMessage(msgJson);
+    };
 
     // Signal to Qt that the JS API is ready
     window.intellisenseReady = true;

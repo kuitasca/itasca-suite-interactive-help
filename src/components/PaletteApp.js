@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import PaletteList from './PaletteList';
 import ContextMenu from './ContextMenu';
 import TypeOverlay from './TypeOverlay';
+import { BridgeClient } from '../utils/bridgeClient';
+import { MESSAGE_TYPES } from '../utils/bridgeMessages';
 // parseArgsFromTitle is deprecated, inputs are sent as part of the data
 import { ReactComponent as FilterIcon } from './assets/icons/filter.svg';
 import { ReactComponent as HelpIcon } from './assets/icons/help.svg';
@@ -138,7 +140,8 @@ const PaletteApp = () => {
   }, []);
 
   const paletteListRef = useRef(null);
-  const qtBridgeRef = useRef(null); // holds the Qt bridge object when running inside QWebEngine
+  const qtBridgeRef = useRef(null);
+  const bridgeClientRef = useRef(new BridgeClient('palette'));
   const dispatchQtKeyToPaletteRef = useRef(null);
   const qtBridgeInitInFlightRef = useRef(false);
   const qtBridgeConnectedRef = useRef(false);
@@ -431,14 +434,23 @@ const PaletteApp = () => {
     }
   }, []);
 
-  const askRosie = useCallback((row) => {
+  const askRosie = useCallback(async (row) => {
     const query = row?.pathString || row?.label || '';
     if (!query.trim()) return;
-    const bridge = qtBridgeRef.current;
-    if (bridge && typeof bridge.askRosie === 'function') {
-      bridge.askRosie(query);
+    const client = bridgeClientRef.current;
+    if (client.bridge && typeof client.bridge.sendMessage === 'function') {
+      try {
+        await client.send(MESSAGE_TYPES.ASK_ROSIE, { query, sessionId: null, section: 'default' });
+      } catch (err) {
+        console.warn('askRosie failed:', err.message);
+      }
     } else {
-      console.warn('Qt action not available: askRosie');
+      const bridge = qtBridgeRef.current;
+      if (bridge && typeof bridge.askRosie === 'function') {
+        bridge.askRosie(query);
+      } else {
+        console.warn('Qt action not available: askRosie');
+      }
     }
   }, []);
 
@@ -968,10 +980,13 @@ const PaletteApp = () => {
         qtBridgeRef.current = bridge;
         window.qtBridge = bridge;
         qtBridgeConnectedRef.current = true;
+        bridgeClientRef.current.setBridge(bridge);
 
         if (bridge?.debugFromJs) {
           bridge.debugFromJs('qtBridge is ok');
         }
+
+        bridgeClientRef.current.emit(MESSAGE_TYPES.READY, { capabilities: ['askRosie'] });
 
         if (!qtKeySignalConnectedRef.current && bridge?.editorKeyPressedRequested?.connect) {
           bridge.editorKeyPressedRequested.connect((text, key, modifiers, autoRepeat) => {
@@ -1007,6 +1022,10 @@ const PaletteApp = () => {
 
     window.handleQtKey = (text, key, modifiers, autoRepeat) => {
       dispatchQtKeyToPalette(text, key, modifiers, autoRepeat);
+    };
+
+    window.onBridgeMessage = (msgJson) => {
+      bridgeClientRef.current.onMessage(msgJson);
     };
 
   }, [handleLoadTree, resetTreeUIFunction, dispatchQtKeyToPalette]);
